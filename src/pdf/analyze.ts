@@ -53,6 +53,7 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
     // Common color setters in pdf.js operator list:
     // setFillRGBColor: args = [r,g,b]
     // setFillGray: args = [g]
+    // setFillColorN: args = ["#RRGGBB"] (hex string)
     if (Array.isArray(args) && args.length === 3 && args.every((x) => typeof x === "number")) {
       // could be fill rgb
       fillRGB = [args[0], args[1], args[2]];
@@ -61,17 +62,47 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
       // could be fill gray
       fillGray = args[0];
       fillRGB = null;
+    } else if (Array.isArray(args) && args.length === 1 && typeof args[0] === "string" && args[0].startsWith("#")) {
+      // hex color string like "#000000"
+      const hex = args[0];
+      const r = parseInt(hex.slice(1, 3), 16) / 255;
+      const g = parseInt(hex.slice(3, 5), 16) / 255;
+      const b = parseInt(hex.slice(5, 7), 16) / 255;
+      fillRGB = [r, g, b];
+      fillGray = null;
     }
 
     // constructPath: args often has a second array containing coordinates
     // We heuristically look for arrays containing many numbers in groups of 4 that
     // are plausible rects. This can over-detect; we filter by darkness + size.
+    // Pattern 1: args[1] contains coordinates (older pattern)
+    // Pattern 2: args[2] contains Float32Array(4) with coordinates (newer pattern)
+    let coordsArray = null;
     if (Array.isArray(args) && args.length >= 2 && Array.isArray(args[1]) && args[1].length >= 4) {
-      const nums = args[1].filter((x: any) => typeof x === "number");
-      // attempt: scan groups of 4 that look like x y w h in viewport space
+      coordsArray = args[1];
+    } else if (Array.isArray(args) && args.length >= 3 && (args[2] instanceof Float32Array || Array.isArray(args[2])) && args[2].length >= 4) {
+      coordsArray = args[2];
+    }
+
+    if (coordsArray) {
+      const nums = Array.from(coordsArray).filter((x: any) => typeof x === "number");
+
+      // The coords can be in different formats:
+      // Format 1: [x, y, w, h] - position and dimensions
+      // Format 2: [x1, y1, x2, y2] - two corner points
+      // We detect Format 2 if the "width" and "height" values are larger than x/y (suggesting they're coordinates)
       for (let k = 0; k + 3 < nums.length; k += 4) {
-        const x = nums[k], y = nums[k + 1], w = nums[k + 2], h = nums[k + 3];
+        let x = nums[k], y = nums[k + 1], w = nums[k + 2], h = nums[k + 3];
         if (![x, y, w, h].every((n) => Number.isFinite(n))) continue;
+
+        // Check if this looks like [x1, y1, x2, y2] format (both w and h are > x and y respectively)
+        if (w > x && h > y && w < 10000 && h < 10000) {
+          // Likely [x1, y1, x2, y2] - convert to [x, y, w, h]
+          const x2 = w, y2 = h;
+          w = x2 - x;
+          h = y2 - y;
+        }
+
         const aw = Math.abs(w), ah = Math.abs(h);
         if (aw < 5 || ah < 5) continue;
 
@@ -90,7 +121,18 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
         // min area: either a ratio threshold or absolute px-ish threshold
         if (area < Math.max(pageArea * 0.0005, 2000)) continue;
 
-        rects.push({ x, y, w: aw, h: ah, area });
+        // Transform rectangle from PDF space to viewport space
+        // viewport.convertToViewportRectangle expects [x1, y1, x2, y2] in PDF space
+        const x2 = x + aw;
+        const y2 = y + ah;
+        const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle([x, y, x2, y2]);
+        const vx = Math.min(vx1, vx2);
+        const vy = Math.min(vy1, vy2);
+        const vw = Math.abs(vx2 - vx1);
+        const vh = Math.abs(vy2 - vy1);
+        const varea = vw * vh;
+
+        rects.push({ x: vx, y: vy, w: vw, h: vh, area: varea });
       }
     }
   }
@@ -104,6 +146,7 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
     seen.add(key);
     out.push(r);
   }
+
   return out;
 }
 

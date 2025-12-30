@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-test-pdf": "node scripts/generate-test-pdf.js",
+    "generate-raw-pdf": "node scripts/generate-raw-pdf.js"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
