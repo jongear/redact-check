@@ -5,10 +5,14 @@ import { downloadBlob } from "./pdf/audit";
 import type { AuditLog, PageAudit } from "./pdf/types";
 
 function riskBadge(risk: PageAudit["risk"]) {
-  if (risk === "high") return "🔥 High";
-  if (risk === "medium") return "⚠️ Medium";
-  if (risk === "low") return "ℹ️ Low";
-  return "✅ None";
+  const badges = {
+    high: { text: "🔥 High", className: "risk-badge risk-high" },
+    medium: { text: "⚠️ Medium", className: "risk-badge risk-medium" },
+    low: { text: "ℹ️ Low", className: "risk-badge risk-low" },
+    none: { text: "✅ None", className: "risk-badge risk-none" }
+  };
+  const badge = badges[risk];
+  return <span className={badge.className}>{badge.text}</span>;
 }
 
 export default function App() {
@@ -68,13 +72,13 @@ export default function App() {
 
   return (
     <div className="container">
-      <h1 style={{ marginTop: 0 }}>Redact Check</h1>
-      <p>
+      <h1>Redact Check</h1>
+      <p className="subtitle">
         Client-side tool to <b>detect likely bad redactions</b> and export a <b>cleaned PDF</b> (heuristic).
         Your PDF stays in your browser.
       </p>
 
-      <div className="card">
+      <div className="card card-upload">
         <div className="row">
           <input
             type="file"
@@ -86,24 +90,39 @@ export default function App() {
           />
         </div>
 
-        <div className="row" style={{ marginTop: 12 }}>
-          <button onClick={runAnalyze} disabled={!bytes}>Analyze</button>
-          <button onClick={runClean} disabled={!bytes}>Export Cleaned PDF</button>
+        <div className="row" style={{ marginTop: 16 }}>
+          <button className="primary" onClick={runAnalyze} disabled={!bytes}>Analyze</button>
+          <button className="primary" onClick={runClean} disabled={!bytes}>Export Cleaned PDF</button>
           <button onClick={downloadAudit} disabled={!audit}>Download audit.json</button>
           <button onClick={downloadCleaned} disabled={!cleanedBytes}>Download cleaned PDF</button>
-          <span className="badge"><small>{status || "—"}</small></span>
+          {status && <span className="badge badge-status"><small>{status}</small></span>}
         </div>
       </div>
 
       {audit && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Summary</h2>
-          <div className="row">
-            <span className="badge">Pages: {audit.source.page_count}</span>
-            <span className="badge">Flagged: {audit.summary.pages_flagged}</span>
-            <span className="badge">High: {audit.summary.pages_high}</span>
-            <span className="badge">Medium: {audit.summary.pages_medium}</span>
-            <span className="badge">Low: {audit.summary.pages_low}</span>
+          <h2>Summary</h2>
+          <div className="summary-grid">
+            <div className="summary-card">
+              <span className="summary-value">{audit.source.page_count}</span>
+              <span className="summary-label">Pages</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value">{audit.summary.pages_flagged}</span>
+              <span className="summary-label">Flagged</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value" style={{ color: "var(--danger)" }}>{audit.summary.pages_high}</span>
+              <span className="summary-label">High Risk</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value" style={{ color: "var(--warning)" }}>{audit.summary.pages_medium}</span>
+              <span className="summary-label">Medium Risk</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value" style={{ color: "var(--info)" }}>{audit.summary.pages_low}</span>
+              <span className="summary-label">Low Risk</span>
+            </div>
           </div>
 
           <h3>Pages to check</h3>
@@ -142,20 +161,20 @@ export default function App() {
 
       {cleanSummary && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Clean actions (heuristic)</h2>
+          <h2>Clean actions (heuristic)</h2>
           <pre>{JSON.stringify(cleanSummary, null, 2)}</pre>
           <p>
             <small>
-              Tip: use the audit’s “Pages to check” list to quickly validate the output on long PDFs.
+              Tip: use the audit's "Pages to check" list to quickly validate the output on long PDFs.
             </small>
           </p>
         </div>
       )}
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0 }}>Notes</h2>
+        <h2>Notes</h2>
         <ul>
-          <li>This won’t recover properly-redacted PDFs where content was actually removed.</li>
+          <li>This won't recover properly-redacted PDFs where content was actually removed.</li>
           <li>Overlay stripping is heuristic; some PDFs use complex drawing/XObjects.</li>
           <li>For best results, run Analyze → Clean → verify the flagged pages.</li>
         </ul>
