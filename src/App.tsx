@@ -36,26 +36,57 @@ export default function App() {
     setCleanedBytes(null);
     setCleanSummary(null);
     setStatus("Reading file…");
-    const buf = new Uint8Array(await f.arrayBuffer());
-    setBytes(buf);
-    setStatus("Ready.");
+    try {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      if (buf.length === 0) {
+        setStatus("Error: File is empty");
+        setBytes(null);
+        return;
+      }
+      const header = new TextDecoder().decode(buf.slice(0, 5));
+      if (!header.startsWith("%PDF-")) {
+        setStatus("Error: File does not appear to be a valid PDF (missing header)");
+        setBytes(null);
+        return;
+      }
+      setBytes(buf);
+      setStatus(`Ready. File size: ${(buf.length / 1024).toFixed(1)} KB`);
+    } catch (err) {
+      console.error("File read error:", err);
+      setStatus(`Error reading file: ${err instanceof Error ? err.message : String(err)}`);
+      setBytes(null);
+    }
   }
 
   async function runAnalyze() {
     if (!bytes || !file) return;
     setStatus("Analyzing (PDF.js)…");
-    const a = await analyzePdf(bytes, file.name);
-    setAudit(a);
-    setStatus(`Analyzed ${a.source.page_count} pages. Flagged ${a.summary.pages_flagged}.`);
+    try {
+      const a = await analyzePdf(bytes, file.name);
+      setAudit(a);
+      setStatus(`Analyzed ${a.source.page_count} pages. Flagged ${a.summary.pages_flagged}.`);
+    } catch (err) {
+      console.error("Analyze error:", err);
+      setStatus(`Error analyzing PDF: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   async function runClean() {
     if (!bytes || !file) return;
+    if (bytes.length === 0) {
+      setStatus("Error: File is empty");
+      return;
+    }
     setStatus("Cleaning (pdf-lib)…");
-    const res = await cleanPdf(bytes, audit ?? undefined);
-    setCleanedBytes(res.cleanedBytes);
-    setCleanSummary(res.actionsSummary);
-    setStatus("Cleaned PDF ready. (Please verify flagged pages.)");
+    try {
+      const res = await cleanPdf(bytes, audit ?? undefined);
+      setCleanedBytes(res.cleanedBytes);
+      setCleanSummary(res.actionsSummary);
+      setStatus("Cleaned PDF ready. (Please verify flagged pages.)");
+    } catch (err) {
+      console.error("Clean error:", err);
+      setStatus(`Error cleaning PDF: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   function downloadAudit() {

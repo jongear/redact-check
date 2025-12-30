@@ -51,6 +51,15 @@ function isProbablyContentStreamText(streamBytes: Uint8Array): boolean {
 }
 
 export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ cleanedBytes: Uint8Array; actionsSummary: any }> {
+  if (!bytes || bytes.length === 0) {
+    throw new Error("No PDF data provided");
+  }
+
+  const header = new TextDecoder().decode(bytes.slice(0, 5));
+  if (!header.startsWith("%PDF-")) {
+    throw new Error("Invalid PDF: missing PDF header");
+  }
+
   const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
 
   let removedRedactAnnots = 0;
