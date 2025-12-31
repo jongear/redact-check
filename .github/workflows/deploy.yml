@@ -133,9 +133,14 @@ jobs:
           name: Release ${{ steps.version.outputs.version }} (Build ${{ github.run_number }})
           body: |
             ## 🚀 Deployed to GitHub Pages
-            • **Version:** ${{ steps.version.outputs.version }}
-            • **Build:** #${{ github.run_number }}
-            • **Commit:** [`${{ steps.changelog.outputs.short_sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+
+            - **Version:** ${{ steps.version.outputs.version }}
+            - **Build:** #${{ github.run_number }}
+            - **Commit:** [`${{ steps.changelog.outputs.short_sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+
+            🌐 **[Launch App →](${{ needs.deploy.outputs.page_url || 'https://your-username.github.io/redact-check/' }})**
+
+            ---
 
             ### 📋 Changes
             ${{ steps.changelog.outputs.changes }}
@@ -146,11 +151,7 @@ jobs:
             ```
 
             ### 🔍 Compare
-            ${{ steps.changelog.outputs.compare_url && format('[**{0}** → **{1}** — View full diff]({2})', steps.changelog.outputs.previous_tag, steps.changelog.outputs.short_sha, steps.changelog.outputs.compare_url) || '*(Initial release — no previous version to compare)*' }}
-
-            ---
-
-            🌐 **[Launch App →](${{ needs.deploy.outputs.page_url || 'https://your-username.github.io/redact-check/' }})**
+            ${{ steps.changelog.outputs.compare_url && format('- [**{0}** → **{1}** — View full diff]({2})', steps.changelog.outputs.previous_tag, format('{0}-{1}', steps.version.outputs.version, github.run_number), steps.changelog.outputs.compare_url) || '*(Initial release — no previous version to compare)*' }}
           files: redact-check-build.zip
           draft: false
           prerelease: false
