@@ -38,6 +38,35 @@ export default function App() {
     [completedJobs]
   );
 
+  // Helper: determine if a job actually needs cleaning
+  const jobNeedsCleaning = (job: PdfJobState): boolean => {
+    if (!job.audit) return false;
+    // Check if any page meets cleaning criteria:
+    // 1. Medium/high risk
+    // 2. Has redact annotations
+    // 3. Suspicious dark rect area ratio (1%-60% of page - typical redaction range)
+    //    AND either overlaps text OR is in the prime redaction range (1%-30%)
+    return job.audit.pages.some(p => {
+      if (p.risk === "high" || p.risk === "medium") return true;
+      if (p.signals.redact_annots > 0) return true;
+
+      const area = p.signals.dark_rect_area_ratio;
+      // Exclude page backgrounds (>60%) and tiny decorations (<1%)
+      if (area > 0.60 || area < 0.01) return false;
+
+      // Suspicious range (1%-60%): offer cleaning if overlaps text OR in prime redaction range
+      if (p.signals.overlaps_text_likely) return true;
+      if (area >= 0.01 && area <= 0.30) return true;
+
+      return false;
+    });
+  };
+
+  const jobsNeedingCleaning = useMemo(() =>
+    flaggedJobs.filter(jobNeedsCleaning),
+    [flaggedJobs]
+  );
+
   const aggregateStats = useMemo(() => {
     const stats = {
       total_files: jobs.size,
@@ -242,12 +271,12 @@ export default function App() {
   }
 
   async function downloadAllCleanedAsZip() {
-    if (flaggedJobs.length === 0) return;
+    if (jobsNeedingCleaning.length === 0) return;
 
     setGlobalStatus("Preparing ZIP archive...");
     const zip = new JSZip();
 
-    for (const job of flaggedJobs) {
+    for (const job of jobsNeedingCleaning) {
       if (!job.bytes || !job.audit) continue;
 
       let cleanedBytes: Uint8Array;
@@ -442,7 +471,7 @@ export default function App() {
             <button
               className="primary"
               onClick={downloadAllCleanedAsZip}
-              disabled={flaggedJobs.length === 0}
+              disabled={jobsNeedingCleaning.length === 0}
             >
               Download All Cleaned PDFs (ZIP)
             </button>
@@ -472,9 +501,15 @@ export default function App() {
                           {job.audit.source.page_count} pages
                         </span>
                         {job.audit.summary.pages_flagged > 0 && (
-                          <span className="stat-badge stat-flagged">
-                            {job.audit.summary.pages_flagged} flagged
-                          </span>
+                          jobNeedsCleaning(job) ? (
+                            <span className="stat-badge stat-flagged">
+                              {job.audit.summary.pages_flagged} flagged
+                            </span>
+                          ) : (
+                            <span className="stat-badge stat-clean">
+                              ✓ Reviewed - Clean
+                            </span>
+                          )
                         )}
                       </div>
                     )}
@@ -496,7 +531,7 @@ export default function App() {
                         >
                           📋
                         </button>
-                        {job.audit.summary.pages_flagged > 0 && (
+                        {jobNeedsCleaning(job) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

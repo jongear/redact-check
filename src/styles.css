@@ -666,6 +666,12 @@ li {
   color: var(--accent-primary);
 }
 
+.stat-clean {
+  background: rgba(22, 163, 74, 0.1);
+  border-color: var(--success);
+  color: var(--success);
+}
+
 /* File item actions */
 .file-item-actions {
   display: flex;
