@@ -94,12 +94,20 @@ jobs:
           # Get the latest tag (if exists)
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
+          COMMIT_SHA="${{ github.sha }}"
+
           if [ -z "$LATEST_TAG" ]; then
             # No previous tags, show last 10 commits
             CHANGELOG=$(git log --pretty=format:"- %s (%h)" -10)
+            FILES_CHANGED=$(git diff --stat ${COMMIT_SHA}~10..${COMMIT_SHA} --stat-width=80 | tail -1)
+            COMPARE_URL=""
+            PREVIOUS_TAG="(initial release)"
           else
             # Get commits since last tag
-            CHANGELOG=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)")
+            CHANGELOG=$(git log ${LATEST_TAG}..${COMMIT_SHA} --pretty=format:"- %s (%h)")
+            FILES_CHANGED=$(git diff --stat ${LATEST_TAG}..${COMMIT_SHA} --stat-width=80 | tail -1)
+            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${LATEST_TAG}...${COMMIT_SHA}"
+            PREVIOUS_TAG="$LATEST_TAG"
           fi
 
           # Handle empty changelog
@@ -111,6 +119,10 @@ jobs:
           echo "changes<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "files_changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
+          echo "compare_url=$COMPARE_URL" >> $GITHUB_OUTPUT
+          echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -127,7 +139,16 @@ jobs:
             ### Changes
             ${{ steps.changelog.outputs.changes }}
 
-            View the live app: ${{ needs.deploy.outputs.page_url || 'https://your-username.github.io/redact-check/' }}
+            ### Files Changed
+            ${{ steps.changelog.outputs.files_changed }}
+
+            ### Browse Diff
+            ${{ steps.changelog.outputs.previous_tag }} → ${{ github.sha }}
+            ${{ steps.changelog.outputs.compare_url && format('[View full diff on GitHub]({0})', steps.changelog.outputs.compare_url) || '(No previous release for comparison)' }}
+
+            ---
+
+            **View the live app:** ${{ needs.deploy.outputs.page_url || 'https://your-username.github.io/redact-check/' }}
           files: redact-check-build.zip
           draft: false
           prerelease: false
