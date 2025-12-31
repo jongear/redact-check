@@ -86,6 +86,30 @@ jobs:
         with:
           name: build-artifacts
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the latest tag (if exists)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            # No previous tags, show last 10 commits
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" -10)
+          else
+            # Get commits since last tag
+            CHANGELOG=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)")
+          fi
+
+          # Handle empty changelog
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- ${{ github.event.head_commit.message }} (${{ github.sha }})"
+          fi
+
+          # Output using multiline string
+          echo "changes<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -99,7 +123,7 @@ jobs:
             **Commit:** ${{ github.sha }}
 
             ### Changes
-            ${{ github.event.head_commit.message }}
+            ${{ steps.changelog.outputs.changes }}
 
             View the live app: ${{ needs.deploy.outputs.page_url || 'https://your-username.github.io/redact-check/' }}
           files: redact-check-build.zip
