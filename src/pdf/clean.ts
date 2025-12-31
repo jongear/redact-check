@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFRawStream, PDFName } from "pdf-lib";
 import type { AuditLog } from "./types";
 
 /**
@@ -91,8 +91,8 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ c
     const maybeArray = contents.asArray?.();
     const streams = maybeArray ?? [contents];
 
-    for (const s of streams) {
-      const stream = s;
+    for (let j = 0; j < streams.length; j++) {
+      const stream = streams[j];
       if (!stream?.getContents) continue;
 
       const raw: Uint8Array = stream.getContents();
@@ -105,7 +105,18 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ c
       if (removedEstimate > 0) {
         removedOverlayOpsEstimate += removedEstimate;
         const newBytes = new TextEncoder().encode(cleaned);
-        stream.setContents(newBytes);
+
+        // Create new stream with updated contents
+        const newStream = PDFRawStream.of(stream.dict, newBytes);
+
+        // Replace the stream reference
+        if (maybeArray) {
+          // Replace in array
+          maybeArray.set(j, newStream);
+        } else {
+          // Replace single stream
+          node.set(PDFName.of('Contents'), newStream);
+        }
       }
     }
   }
