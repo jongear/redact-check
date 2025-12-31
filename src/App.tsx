@@ -50,42 +50,27 @@ export default function App() {
         return;
       }
       setBytes(buf);
-      setStatus(`Ready. File size: ${(buf.length / 1024).toFixed(1)} KB`);
+
+      // Auto-analyze after file read
+      setStatus("Analyzing PDF…");
+      try {
+        const a = await analyzePdf(buf, f.name);
+        setAudit(a);
+
+        // Contextual status message
+        if (a.summary.pages_flagged === 0) {
+          setStatus(`Analysis complete. No issues detected in ${a.source.page_count} pages.`);
+        } else {
+          setStatus(`Analysis complete. Found ${a.summary.pages_flagged} flagged page(s).`);
+        }
+      } catch (err) {
+        console.error("Analyze error:", err);
+        setStatus(`Error analyzing PDF: ${err instanceof Error ? err.message : String(err)}`);
+      }
     } catch (err) {
       console.error("File read error:", err);
       setStatus(`Error reading file: ${err instanceof Error ? err.message : String(err)}`);
       setBytes(null);
-    }
-  }
-
-  async function runAnalyze() {
-    if (!bytes || !file) return;
-    setStatus("Analyzing (PDF.js)…");
-    try {
-      const a = await analyzePdf(bytes, file.name);
-      setAudit(a);
-      setStatus(`Analyzed ${a.source.page_count} pages. Flagged ${a.summary.pages_flagged}.`);
-    } catch (err) {
-      console.error("Analyze error:", err);
-      setStatus(`Error analyzing PDF: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  async function runClean() {
-    if (!bytes || !file) return;
-    if (bytes.length === 0) {
-      setStatus("Error: File is empty");
-      return;
-    }
-    setStatus("Cleaning (pdf-lib)…");
-    try {
-      const res = await cleanPdf(bytes, audit ?? undefined);
-      setCleanedBytes(res.cleanedBytes);
-      setCleanSummary(res.actionsSummary);
-      setStatus("Cleaned PDF ready. (Please verify flagged pages.)");
-    } catch (err) {
-      console.error("Clean error:", err);
-      setStatus(`Error cleaning PDF: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -94,11 +79,31 @@ export default function App() {
     downloadBlob(new Blob([JSON.stringify(audit, null, 2)], { type: "application/json" }), "audit.json");
   }
 
-  function downloadCleaned() {
-    if (!cleanedBytes || !file) return;
-    const outName = file.name.replace(/\.pdf$/i, "") + ".cleaned.pdf";
-    
-    downloadBlob(new Blob([cleanedBytes.slice()], { type: "application/pdf" }), outName);
+  async function downloadCleaned() {
+    if (!audit || !bytes || !file) return;
+
+    // If not already cleaned, run cleaning now
+    if (!cleanedBytes) {
+      setStatus("Preparing cleaned PDF…");
+      try {
+        const res = await cleanPdf(bytes, audit);
+        setCleanedBytes(res.cleanedBytes);
+        setCleanSummary(res.actionsSummary);
+        setStatus("Cleaned PDF ready.");
+
+        // Now download it
+        const outName = file.name.replace(/\.pdf$/i, "") + ".cleaned.pdf";
+        downloadBlob(new Blob([res.cleanedBytes.slice()], { type: "application/pdf" }), outName);
+      } catch (err) {
+        console.error("Clean error:", err);
+        setStatus(`Error cleaning PDF: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
+    } else {
+      // Already cleaned, just download
+      const outName = file.name.replace(/\.pdf$/i, "") + ".cleaned.pdf";
+      downloadBlob(new Blob([cleanedBytes.slice()], { type: "application/pdf" }), outName);
+    }
   }
 
   return (
@@ -122,10 +127,16 @@ export default function App() {
         </div>
 
         <div className="row" style={{ marginTop: 16 }}>
-          <button className="primary" onClick={runAnalyze} disabled={!bytes}>Analyze</button>
-          <button className="primary" onClick={runClean} disabled={!bytes}>Export Cleaned PDF</button>
-          <button onClick={downloadAudit} disabled={!audit}>Download audit.json</button>
-          <button onClick={downloadCleaned} disabled={!cleanedBytes}>Download cleaned PDF</button>
+          <button onClick={downloadAudit} disabled={!audit}>
+            Download audit.json
+          </button>
+          <button
+            className="primary"
+            onClick={downloadCleaned}
+            disabled={!audit || audit.summary.pages_flagged === 0}
+          >
+            Download cleaned PDF
+          </button>
           {status && <span className="badge badge-status"><small>{status}</small></span>}
         </div>
       </div>
@@ -205,9 +216,10 @@ export default function App() {
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Notes</h2>
         <ul>
+          <li>Analysis runs automatically when you upload a PDF.</li>
           <li>This won't recover properly-redacted PDFs where content was actually removed.</li>
           <li>Overlay stripping is heuristic; some PDFs use complex drawing/XObjects.</li>
-          <li>For best results, run Analyze → Clean → verify the flagged pages.</li>
+          <li>Always verify flagged pages in the cleaned PDF before sharing.</li>
         </ul>
       </div>
 
