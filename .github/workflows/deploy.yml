@@ -95,24 +95,25 @@ jobs:
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
           COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
 
           if [ -z "$LATEST_TAG" ]; then
             # No previous tags, show last 10 commits
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" -10)
+            CHANGELOG=$(git log --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" -10)
             FILES_CHANGED=$(git diff --stat ${COMMIT_SHA}~10..${COMMIT_SHA} --stat-width=80 | tail -1)
             COMPARE_URL=""
-            PREVIOUS_TAG="(initial release)"
+            PREVIOUS_TAG="Initial release"
           else
             # Get commits since last tag
-            CHANGELOG=$(git log ${LATEST_TAG}..${COMMIT_SHA} --pretty=format:"- %s (%h)")
+            CHANGELOG=$(git log ${LATEST_TAG}..${COMMIT_SHA} --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))")
             FILES_CHANGED=$(git diff --stat ${LATEST_TAG}..${COMMIT_SHA} --stat-width=80 | tail -1)
-            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${LATEST_TAG}...${COMMIT_SHA}"
+            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${LATEST_TAG}...${SHORT_SHA}"
             PREVIOUS_TAG="$LATEST_TAG"
           fi
 
           # Handle empty changelog
           if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="- ${{ github.event.head_commit.message }} (${{ github.sha }})"
+            CHANGELOG="- ${{ github.event.head_commit.message }} ([$SHORT_SHA](https://github.com/${{ github.repository }}/commit/$COMMIT_SHA))"
           fi
 
           # Output using multiline string
@@ -123,6 +124,7 @@ jobs:
           echo "files_changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
           echo "compare_url=$COMPARE_URL" >> $GITHUB_OUTPUT
           echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -130,25 +132,24 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}-${{ github.run_number }}
           name: Release ${{ steps.version.outputs.version }} (Build ${{ github.run_number }})
           body: |
-            ## Deployed to GitHub Pages
+            ## 🚀 Deployed to GitHub Pages
 
-            **Version:** ${{ steps.version.outputs.version }}
-            **Build:** #${{ github.run_number }}
-            **Commit:** ${{ github.sha }}
+            **Version:** ${{ steps.version.outputs.version }} • **Build:** #${{ github.run_number }} • **Commit:** [`${{ steps.changelog.outputs.short_sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
 
-            ### Changes
+            ### 📋 Changes
             ${{ steps.changelog.outputs.changes }}
 
-            ### Files Changed
+            ### 📊 Files Changed
+            ```
             ${{ steps.changelog.outputs.files_changed }}
+            ```
 
-            ### Browse Diff
-            ${{ steps.changelog.outputs.previous_tag }} → ${{ github.sha }}
-            ${{ steps.changelog.outputs.compare_url && format('[View full diff on GitHub]({0})', steps.changelog.outputs.compare_url) || '(No previous release for comparison)' }}
+            ### 🔍 Compare
+            ${{ steps.changelog.outputs.compare_url && format('[**{0}** → **{1}**]({2}) — View full diff', steps.changelog.outputs.previous_tag, steps.changelog.outputs.short_sha, steps.changelog.outputs.compare_url) || '*(Initial release — no previous version to compare)*' }}
 
             ---
 
-            **View the live app:** ${{ needs.deploy.outputs.page_url || 'https://your-username.github.io/redact-check/' }}
+            🌐 **[Launch App →](${{ needs.deploy.outputs.page_url || 'https://your-username.github.io/redact-check/' }})**
           files: redact-check-build.zip
           draft: false
           prerelease: false
