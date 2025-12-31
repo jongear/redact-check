@@ -1,12 +1,12 @@
 import { PDFDocument, PDFRawStream, PDFName } from "pdf-lib";
 import type { AuditLog } from "./types";
+import pako from "pako";
 
 /**
  * Heuristic filter that attempts to remove common "black rectangle overlay" ops.
  * Targets patterns like:
- *   0 0 0 rg
- *   x y w h re
- *   f
+ *   Pattern A/B: 0 0 0 rg ... x y w h re ... f (using re operator)
+ *   Pattern C/D: 0 0 0 rg ... m ... l ... h f (using path operators)
  *
  * NOTE: This is not a full PDF content parser. It is intentionally conservative.
  */
@@ -36,7 +36,28 @@ function stripCommonBlackRectFills(content: string): { cleaned: string; removedE
     return "\n% stripped_suspected_black_rect_fill\n";
   });
 
-  return { cleaned: outB, removedEstimate: removed };
+  // Pattern C: "q ... 0 0 0 rg ... m ... l ... h ... f ... Q" (RGB black path-based rect)
+  // Matches save-state, black fill, path construction, fill, restore
+  // IMPORTANT: Must NOT contain BT (begin text) to avoid matching text blocks
+  const patternC =
+    /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
+
+  const outC = outB.replace(patternC, (m) => {
+    removed += 1;
+    return "\n% stripped_suspected_black_rect_fill_path\n";
+  });
+
+  // Pattern D: "q ... 0 g ... m ... l ... h ... f ... Q" (Gray black path-based rect)
+  // IMPORTANT: Must NOT contain BT (begin text) to avoid matching text blocks
+  const patternD =
+    /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+g\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
+
+  const outD = outC.replace(patternD, (m) => {
+    removed += 1;
+    return "\n% stripped_suspected_black_rect_fill_path\n";
+  });
+
+  return { cleaned: outD, removedEstimate: removed };
 }
 
 function isProbablyContentStreamText(streamBytes: Uint8Array): boolean {
@@ -93,30 +114,55 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ c
 
     for (let j = 0; j < streams.length; j++) {
       const stream = streams[j];
+
       if (!stream?.getContents) continue;
 
+      // Get raw contents (may be compressed)
       const raw: Uint8Array = stream.getContents();
       if (!raw || raw.length === 0) continue;
-      if (!isProbablyContentStreamText(raw)) continue;
 
-      const text = new TextDecoder("utf-8", { fatal: false }).decode(raw);
+      // Decompress if stream has FlateDecode filter
+      let decoded = raw;
+      let wasCompressed = false;
+      const filter = stream.dict?.get?.(PDFName.of('Filter'));
+
+      if (filter) {
+        const filterName = filter.toString();
+        if (filterName === '/FlateDecode' || filterName === '/Fl') {
+          try {
+            // Decompress using pako
+            decoded = pako.inflate(raw);
+            wasCompressed = true;
+          } catch (e) {
+            // If decompression fails, try processing raw anyway
+            console.warn(`Failed to decompress FlateDecode stream on page ${i + 1}: ${e}`);
+          }
+        }
+      }
+
+      // Check if the decoded stream is text-like
+      if (!isProbablyContentStreamText(decoded)) continue;
+
+      const text = new TextDecoder("utf-8", { fatal: false }).decode(decoded);
       const { cleaned, removedEstimate } = stripCommonBlackRectFills(text);
 
       if (removedEstimate > 0) {
         removedOverlayOpsEstimate += removedEstimate;
         const newBytes = new TextEncoder().encode(cleaned);
 
-        // Create new stream with updated contents
-        const newStream = PDFRawStream.of(stream.dict, newBytes);
-
-        // Replace the stream reference
-        if (maybeArray) {
-          // Replace in array
-          maybeArray.set(j, newStream);
-        } else {
-          // Replace single stream
-          node.set(PDFName.of('Contents'), newStream);
+        // Clone the dict and remove the Filter if it was compressed
+        const newDict = stream.dict.clone();
+        if (wasCompressed) {
+          newDict.delete(PDFName.of('Filter'));
+          // Also update the Length to match new uncompressed size
+          newDict.set(PDFName.of('Length'), pdfDoc.context.obj(newBytes.length));
         }
+
+        // Create new stream with updated contents and dict
+        const newStream = PDFRawStream.of(newDict, newBytes);
+
+        // Replace the Contents - always set as single stream for simplicity
+        node.set(PDFName.of('Contents'), newStream);
       }
     }
   }
