@@ -41,6 +41,19 @@ npm run dev
 
 The application will be available at `http://localhost:5173` (or another port if 5173 is in use).
 
+### Using the Makefile
+
+For convenience, common development tasks are available via `make`:
+
+```bash
+make help      # Show all available commands
+make build     # Build for production
+make clean     # Remove build artifacts
+make dev       # Start development server
+make install   # Install dependencies
+make preview   # Preview production build
+```
+
 ### Building for Production
 
 ```bash
