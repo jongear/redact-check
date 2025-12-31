@@ -10,31 +10,8 @@ function createRawPDF() {
   // 1. Text "top secret election plans"
   // 2. Black rectangle overlay using "0 0 0 rg" + "re" + "f" operators
 
-  const pdf = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-
-3 0 obj
-<<
-  /Type /Page
-  /Parent 2 0 R
-  /MediaBox [0 0 612 792]
-  /Contents 4 0 R
-  /Resources <<
-    /Font << /F1 5 0 R >>
-  >>
->>
-endobj
-
-4 0 obj
-<< /Length 350 >>
-stream
-BT
+  // Content stream with the exact operators
+  const streamContent = `BT
 /F1 16 Tf
 50 742 Td
 (CONFIDENTIAL DOCUMENT) Tj
@@ -61,7 +38,35 @@ BT
 50 572 Td
 (All public events will be held at the community center.) Tj
 ET
-endstream
+`;
+
+  const streamLength = streamContent.length;
+
+  const pdf = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /MediaBox [0 0 612 792]
+  /Contents 4 0 R
+  /Resources <<
+    /Font << /F1 5 0 R >>
+  >>
+>>
+endobj
+
+4 0 obj
+<< /Length ${streamLength} >>
+stream
+${streamContent}endstream
 endobj
 
 5 0 obj

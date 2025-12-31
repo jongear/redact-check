@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, PDFRawStream, PDFName } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
 
@@ -29,58 +29,19 @@ async function generateTestPdf() {
     size: textSize,
   });
 
-  // Draw a black rectangle over the sensitive text using RAW PDF operators
-  // This matches the pattern that the detector looks for:
-  // 0 0 0 rg (set fill color to black RGB)
-  // x y w h re (rectangle path)
-  // f (fill)
+  // Draw a black rectangle over the sensitive text
   const rectWidth = 180;
   const rectHeight = 20;
   const rectX = textX - 2;
   const rectY = textY - 4;
 
-  // Inject raw PDF operators into the page's content stream
-  // This simulates how someone might manually edit a PDF to add a black box
-  const rawOperators = `
-0 0 0 rg
-${rectX} ${rectY} ${rectWidth} ${rectHeight} re
-f
-`;
-
-  // Get the current page content and append our raw operators
-  const pageNode = page.node;
-  const contents = pageNode.Contents();
-
-  if (contents) {
-    // Contents can be a single stream or an array of streams
-    const maybeArray = contents.asArray?.();
-    const streams = maybeArray ?? [contents];
-
-    // Append to the last stream
-    for (let i = 0; i < streams.length; i++) {
-      const stream = streams[i];
-      if (!stream || typeof stream.getContents !== 'function') continue;
-
-      try {
-        const existingContent = new TextDecoder().decode(stream.getContents());
-        const newContent = existingContent + rawOperators;
-        const newBytes = new TextEncoder().encode(newContent);
-
-        // Create new stream with updated contents
-        const newStream = PDFRawStream.of(stream.dict, newBytes);
-
-        // Replace the stream reference
-        if (maybeArray) {
-          maybeArray.set(i, newStream);
-        } else {
-          pageNode.set(PDFName.of('Contents'), newStream);
-        }
-        break; // Only modify the first valid stream
-      } catch (err) {
-        console.warn('Could not modify stream:', err);
-      }
-    }
-  }
+  page.drawRectangle({
+    x: rectX,
+    y: rectY,
+    width: rectWidth,
+    height: rectHeight,
+    color: rgb(0, 0, 0),
+  });
 
   // Add some more innocent text below
   page.drawText('This document contains information about our public outreach programs.', {
