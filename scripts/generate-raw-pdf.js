@@ -97,7 +97,7 @@ if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
-const outputPath = path.join(outputDir, 'improperly-redacted-test.pdf');
+const outputPath = path.join(outputDir, 'raw-redacted-test.pdf');
 fs.writeFileSync(outputPath, pdfBytes);
 
 console.log(`✓ Raw test PDF created: ${outputPath}`);

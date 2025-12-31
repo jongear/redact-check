@@ -94,7 +94,7 @@ f
   }
 
   // Write to file
-  const outputPath = path.join(outputDir, 'improperly-redacted-test.pdf');
+  const outputPath = path.join(outputDir, 'redacted-test.pdf');
   fs.writeFileSync(outputPath, pdfBytes);
 
   console.log(`✓ Test PDF created: ${outputPath}`);
