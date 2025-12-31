@@ -113,7 +113,12 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ c
     const streams = maybeArray ?? [contents];
 
     for (let j = 0; j < streams.length; j++) {
-      const stream = streams[j];
+      let stream = streams[j];
+
+      // Dereference if it's a PDFRef
+      if (stream?.constructor?.name?.includes('PDFRef')) {
+        stream = pdfDoc.context.lookup(stream);
+      }
 
       if (!stream?.getContents) continue;
 
