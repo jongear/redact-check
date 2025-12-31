@@ -133,8 +133,9 @@ jobs:
           name: Release ${{ steps.version.outputs.version }} (Build ${{ github.run_number }})
           body: |
             ## 🚀 Deployed to GitHub Pages
-
-            **Version:** ${{ steps.version.outputs.version }} • **Build:** #${{ github.run_number }} • **Commit:** [`${{ steps.changelog.outputs.short_sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            • **Version:** ${{ steps.version.outputs.version }}
+            • **Build:** #${{ github.run_number }}
+            • **Commit:** [`${{ steps.changelog.outputs.short_sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
 
             ### 📋 Changes
             ${{ steps.changelog.outputs.changes }}
@@ -145,7 +146,7 @@ jobs:
             ```
 
             ### 🔍 Compare
-            ${{ steps.changelog.outputs.compare_url && format('[**{0}** → **{1}**]({2}) — View full diff', steps.changelog.outputs.previous_tag, steps.changelog.outputs.short_sha, steps.changelog.outputs.compare_url) || '*(Initial release — no previous version to compare)*' }}
+            ${{ steps.changelog.outputs.compare_url && format('[**{0}** → **{1}** — View full diff]({2})', steps.changelog.outputs.previous_tag, steps.changelog.outputs.short_sha, steps.changelog.outputs.compare_url) || '*(Initial release — no previous version to compare)*' }}
 
             ---
 
