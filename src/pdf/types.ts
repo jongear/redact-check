@@ -33,3 +33,39 @@ export type AuditLog = {
   summary: { pages_flagged: number; pages_high: number; pages_medium: number; pages_low: number };
   pages: PageAudit[];
 };
+
+// Multi-file processing types
+export type ProcessingStatus = "pending" | "analyzing" | "complete" | "error";
+
+export type PdfJobState = {
+  id: string;
+  file: File;
+  bytes: Uint8Array | null;
+  audit: AuditLog | null;
+  cleanedBytes: Uint8Array | null;
+  cleanSummary: any;
+  status: ProcessingStatus;
+  error: string | null;
+  expanded: boolean;
+};
+
+export type BatchAuditLog = {
+  schema: "com.example.redact-check.batch";
+  schema_version: "1.0.0";
+  tool: { name: string; version: string; build: "web" };
+  generated_at: string;
+  batch_summary: {
+    total_files: number;
+    completed: number;
+    failed: number;
+    total_pages: number;
+    total_flagged: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  files: Array<{
+    file_name: string;
+    audit: AuditLog | null;
+  }>;
+};

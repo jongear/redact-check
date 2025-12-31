@@ -11,6 +11,8 @@
     "generate-raw-pdf": "node scripts/generate-raw-pdf.js"
   },
   "dependencies": {
+    "@types/jszip": "^3.4.0",
+    "jszip": "^3.10.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.530",
     "react": "^19.2.3",
