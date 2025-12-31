@@ -1,99 +1,97 @@
+# 🔒 redact-check
 
-# redact-check
+> Detect and fix improperly redacted PDFs where content was visually hidden but not actually removed.
 
-Detects improperly redacted PDFs where content was hidden but not removed.
+[![Live Demo](https://img.shields.io/badge/demo-live-success?style=flat-square)](https://jongear.github.io/redact-check/)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/jongear/redact-check/deploy.yml?style=flat-square)](https://github.com/jongear/redact-check/actions)
 
-## Overview
+## 🎯 Overview
 
-**redact-check** is a client-side PDF analysis and cleaning tool designed to identify risky redactions in PDF documents. Many PDFs use visual redaction (black boxes) without actually removing the underlying text—this tool detects those vulnerabilities using heuristics and provides an automated cleaning mechanism.
+**redact-check** is a client-side PDF analysis and cleaning tool that identifies risky redactions in PDF documents. Many PDFs use visual redaction (black boxes) without actually removing the underlying text—this tool detects those vulnerabilities using heuristics and provides automated cleaning.
 
-### Features
+**🌐 [Try it now →](https://jongear.github.io/redact-check/)**
 
-- **Client-side processing** - Your PDFs never leave your browser
-- **Detects hidden text** - Identifies content that appears redacted but remains in the PDF
-- **Risk assessment** - Categorizes findings by risk level (High, Medium, Low, None)
-- **Automated cleaning** - Export cleaned PDFs with problematic content removed
-- **Audit logs** - Download detailed audit reports in JSON format
+## ✨ Features
 
-## Getting Started Locally
+- 🔒 **100% Client-side** — Your PDFs never leave your browser
+- 🔍 **Smart Detection** — Identifies content that appears redacted but remains in the PDF
+- 📊 **Risk Assessment** — Categorizes findings by risk level (High, Medium, Low, None)
+- 🧹 **Auto-Clean** — Export cleaned PDFs with problematic content removed
+- 📋 **Audit Logs** — Download detailed audit reports in JSON format
+- ⚡ **Fast & Secure** — No server uploads, all processing happens locally
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 16+ and npm
 
-### Installation
+### Installation & Development
 
-1. Clone the repository:
 ```bash
+# Clone the repository
 git clone git@github.com:jongear/redact-check.git
 cd redact-check
-```
 
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
+# or
+make install
 
-3. Start the development server:
-```bash
+# Start development server
 npm run dev
+# or
+make dev
 ```
 
-The application will be available at `http://localhost:5173` (or another port if 5173 is in use).
+The app will be available at `http://localhost:5173`
 
-### Using the Makefile
+### Available Commands
 
-For convenience, common development tasks are available via `make`:
+| Command | NPM | Make | Description |
+|---------|-----|------|-------------|
+| **Install** | `npm install` | `make install` | Install dependencies |
+| **Dev** | `npm run dev` | `make dev` | Start development server |
+| **Build** | `npm run build` | `make build` | Build for production |
+| **Preview** | `npm run preview` | `make preview` | Preview production build |
+| **Clean** | — | `make clean` | Remove build artifacts |
+| **Help** | — | `make help` | Show all make commands |
 
-```bash
-make help      # Show all available commands
-make build     # Build for production
-make clean     # Remove build artifacts
-make dev       # Start development server
-make install   # Install dependencies
-make preview   # Preview production build
-```
+## 📖 How It Works
 
-### Building for Production
+1. 📤 **Upload** a PDF file (stays in your browser)
+2. 🔍 **Analyze** the PDF to detect potentially hidden redactions
+3. 📊 **Review** flagged pages with detailed risk assessments
+4. 🧹 **Clean** and export a new PDF with risky content removed
+5. 💾 **Download** the cleaned PDF and audit log
 
-```bash
-npm run build
-```
+## 🛠️ Tech Stack
 
-The compiled files will be in the `dist/` directory.
+- **[React 19](https://react.dev/)** — Modern UI framework
+- **[TypeScript](https://www.typescriptlang.org/)** — Type-safe development
+- **[Vite](https://vitejs.dev/)** — Lightning-fast build tool and dev server
+- **[PDF.js](https://mozilla.github.io/pdf.js/)** — PDF parsing and text extraction
+- **[pdf-lib](https://pdf-lib.js.org/)** — PDF manipulation and cleaning
 
-### Preview Production Build
+## ⚠️ Security Notice
 
-```bash
-npm run preview
-```
+This tool detects **improperly redacted** PDFs where content was visually hidden but not removed. It **cannot** recover text from properly redacted PDFs where the content was actually deleted. Always use proper redaction tools (Adobe Acrobat, etc.) when handling sensitive documents.
 
-## How It Works
+## 🤝 Contributing
 
-1. **Upload** a PDF file (stays in your browser)
-2. **Analyze** the PDF to detect potentially hidden redactions
-3. **Review** flagged pages with detailed risk assessments
-4. **Clean** and export a new PDF with risky content removed
-5. **Download** the cleaned PDF and audit log
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Tech Stack
+## 📝 License
 
-- **React 19** - UI framework
-- **TypeScript** - Type-safe development
-- **Vite** - Fast build tool and dev server
-- **PDF.js** - PDF parsing and text extraction
-- **pdf-lib** - PDF manipulation and cleaning
+MIT License - see [LICENSE](LICENSE) for details
 
----
-
-## Support
+## 💖 Support
 
 If you find this tool useful, consider supporting its development:
 
 [![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/jongear)
 
-<!-- 
-Or donate via:
-- [Ko-fi](https://ko-fi.com/yourname)
-- [GitHub Sponsors](https://github.com/sponsors/yourname)
- -->
+---
+
+**Made with ❤️ by [jongear](https://github.com/jongear)**
