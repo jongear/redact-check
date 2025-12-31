@@ -1,4 +1,4 @@
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb, PDFRawStream, PDFName } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
 
@@ -57,13 +57,24 @@ f
     const streams = maybeArray ?? [contents];
 
     // Append to the last stream
-    for (const stream of streams) {
+    for (let i = 0; i < streams.length; i++) {
+      const stream = streams[i];
       if (!stream || typeof stream.getContents !== 'function') continue;
 
       try {
         const existingContent = new TextDecoder().decode(stream.getContents());
         const newContent = existingContent + rawOperators;
-        stream.setContents(new TextEncoder().encode(newContent));
+        const newBytes = new TextEncoder().encode(newContent);
+
+        // Create new stream with updated contents
+        const newStream = PDFRawStream.of(stream.dict, newBytes);
+
+        // Replace the stream reference
+        if (maybeArray) {
+          maybeArray.set(i, newStream);
+        } else {
+          pageNode.set(PDFName.of('Contents'), newStream);
+        }
         break; // Only modify the first valid stream
       } catch (err) {
         console.warn('Could not modify stream:', err);
