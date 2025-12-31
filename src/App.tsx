@@ -32,6 +32,7 @@ export default function App() {
 
   async function onPick(f: File) {
     setFile(f);
+    setBytes(null);
     setAudit(null);
     setCleanedBytes(null);
     setCleanSummary(null);
@@ -49,7 +50,10 @@ export default function App() {
         setBytes(null);
         return;
       }
-      setBytes(buf);
+
+      console.log("Setting bytes with length:", buf.length);
+      // Create a copy of the buffer to prevent it from being detached
+      setBytes(buf.slice());
 
       // Auto-analyze after file read
       setStatus("Analyzing PDF…");
@@ -80,7 +84,25 @@ export default function App() {
   }
 
   async function downloadCleaned() {
-    if (!audit || !bytes || !file) return;
+    console.log("downloadCleaned called - State check:", {
+      hasAudit: !!audit,
+      hasBytes: !!bytes,
+      bytesLength: bytes?.length ?? 'null',
+      hasFile: !!file
+    });
+
+    if (!audit || !bytes || !file) {
+      console.error("Download cleaned failed: missing required data", { audit: !!audit, bytes: !!bytes, file: !!file });
+      setStatus("Error: Missing required data");
+      return;
+    }
+
+    // Additional validation
+    if (bytes.length === 0) {
+      console.error("Download cleaned failed: bytes array is empty");
+      setStatus("Error: PDF data is empty");
+      return;
+    }
 
     // If not already cleaned, run cleaning now
     if (!cleanedBytes) {
@@ -126,19 +148,11 @@ export default function App() {
           />
         </div>
 
-        <div className="row" style={{ marginTop: 16 }}>
-          <button onClick={downloadAudit} disabled={!audit}>
-            Download audit.json
-          </button>
-          <button
-            className="primary"
-            onClick={downloadCleaned}
-            disabled={!audit || audit.summary.pages_flagged === 0}
-          >
-            Download cleaned PDF
-          </button>
-          {status && <span className="badge badge-status"><small>{status}</small></span>}
-        </div>
+        {status && (
+          <div className="row" style={{ marginTop: 16 }}>
+            <span className="badge badge-status"><small>{status}</small></span>
+          </div>
+        )}
       </div>
 
       {audit && (
@@ -165,6 +179,19 @@ export default function App() {
               <span className="summary-value" style={{ color: "var(--info)" }}>{audit.summary.pages_low}</span>
               <span className="summary-label">Low Risk</span>
             </div>
+          </div>
+
+          <div className="row" style={{ marginTop: 16 }}>
+            <button onClick={downloadAudit} disabled={!audit}>
+              Download audit.json
+            </button>
+            <button
+              className="primary"
+              onClick={downloadCleaned}
+              disabled={!audit || audit.summary.pages_flagged === 0}
+            >
+              Download cleaned PDF
+            </button>
           </div>
 
           <h3>Pages to check</h3>
