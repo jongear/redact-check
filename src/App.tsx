@@ -167,18 +167,15 @@ export default function App() {
         throw new Error("Not a valid PDF (missing header)");
       }
 
-      // Create a copy to preserve for later use (analyzePdf may detach the buffer)
-      const bytesToStore = buf.slice();
-
       // Analyze
       const audit = await analyzePdf(buf, job.file.name);
 
-      // Update to complete
+      // Update to complete (release bytes to save memory - will re-read from File on download)
       setJobs(prev => {
         const next = new Map(prev);
         next.set(jobId, {
           ...job,
-          bytes: bytesToStore,
+          bytes: null, // Release memory - we still have job.file to re-read from
           audit,
           status: "complete",
           error: null
@@ -219,13 +216,15 @@ export default function App() {
 
   async function downloadJobCleaned(jobId: string) {
     const job = jobs.get(jobId);
-    if (!job?.audit || !job.bytes) return;
+    if (!job?.audit) return;
 
     // Lazy cleaning
     if (!job.cleanedBytes) {
       setGlobalStatus(`Cleaning ${job.file.name}...`);
       try {
-        const res = await cleanPdf(job.bytes, job.audit);
+        // Re-read bytes from File object (we released them after analysis to save memory)
+        const bytes = new Uint8Array(await job.file.arrayBuffer());
+        const res = await cleanPdf(bytes, job.audit);
 
         setJobs(prev => {
           const next = new Map(prev);
@@ -277,7 +276,7 @@ export default function App() {
     const zip = new JSZip();
 
     for (const job of jobsNeedingCleaning) {
-      if (!job.bytes || !job.audit) continue;
+      if (!job.audit) continue;
 
       let cleanedBytes: Uint8Array;
 
@@ -286,7 +285,9 @@ export default function App() {
       } else {
         try {
           setGlobalStatus(`Cleaning ${job.file.name}...`);
-          const res = await cleanPdf(job.bytes, job.audit);
+          // Re-read bytes from File object (we released them after analysis to save memory)
+          const bytes = new Uint8Array(await job.file.arrayBuffer());
+          const res = await cleanPdf(bytes, job.audit);
 
           setJobs(prev => {
             const next = new Map(prev);
