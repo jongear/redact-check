@@ -269,12 +269,16 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string): Promise<A
       },
       findings,
     });
+
+    page.cleanup();
   }
 
   const pages_flagged = pages.filter((x) => x.risk !== "none").length;
   const pages_high = pages.filter((x) => x.risk === "high").length;
   const pages_medium = pages.filter((x) => x.risk === "medium").length;
   const pages_low = pages.filter((x) => x.risk === "low").length;
+
+  pdf.destroy();
 
   return {
     schema: "com.example.redact-check",

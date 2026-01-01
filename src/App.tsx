@@ -141,20 +141,20 @@ export default function App() {
   }
 
   async function processJob(jobId: string, jobsSnapshot: Map<string, PdfJobState>) {
-    // Update status to analyzing
+    const job = jobsSnapshot.get(jobId);
+    if (!job) return;
+
+    setGlobalStatus(`Analyzing: ${job.file.name}`);
     setJobs(prev => {
       const next = new Map(prev);
-      const job = next.get(jobId);
-      if (job) {
-        next.set(jobId, { ...job, status: "analyzing" });
+      const currentJob = next.get(jobId);
+      if (currentJob) {
+        next.set(jobId, { ...currentJob, status: "analyzing" });
       }
       return next;
     });
 
     try {
-      const job = jobsSnapshot.get(jobId);
-      if (!job) return;
-
       // Read file
       const buf = new Uint8Array(await job.file.arrayBuffer());
 
