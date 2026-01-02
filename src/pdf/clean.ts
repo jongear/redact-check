@@ -101,7 +101,7 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ c
       // We can't easily count subtype without deep parsing; use audit if provided.
       if (audit) removedRedactAnnots += audit.pages[i]?.signals.redact_annots ?? 0;
       removedOtherAnnots += 1;
-      node.delete("Annots");
+      node.delete(PDFName.of('Annots'));
     }
 
     // 2) Heuristically strip black-rect fill ops from content streams

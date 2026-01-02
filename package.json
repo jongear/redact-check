@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "generate-test-pdf": "node scripts/generate-test-pdf.js",
-    "generate-raw-pdf": "node scripts/generate-raw-pdf.js"
+    "generate-raw-pdf": "node scripts/generate-raw-pdf.js",
+    "generate-test-suite": "node scripts/generate-test-suite.js"
   },
   "dependencies": {
     "@types/jszip": "^3.4.0",
