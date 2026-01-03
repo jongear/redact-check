@@ -42,6 +42,10 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
   let fillRGB: [number, number, number] | null = null;
   let fillGray: number | null = null;
 
+  // Track transformation matrix for positioning rectangles
+  // Matrix format: [a, b, c, d, e, f] where e,f are translation (x,y)
+  let currentTransform: { x: number; y: number } = { x: 0, y: 0 };
+
   const rects: Rect[] = [];
 
   // We'll catch patterns where constructPath includes a rectangle.
@@ -49,6 +53,24 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
   // Because this is version-sensitive, we detect by structure noticing 4-number sequences.
   for (let i = 0; i < fnArray.length; i++) {
     const args = argsArray[i];
+
+    // Track transformation matrices (used by pdf-lib to position rectangles)
+    // Transform operations have 6 numbers: [a, b, c, d, e, f]
+    // For simple translations: [1, 0, 0, 1, x, y] where x,y is the translation
+    // Identity matrix [1, 0, 0, 1, 0, 0] means no transformation
+    if (Array.isArray(args) && args.length === 6 && args.every((x) => typeof x === "number")) {
+      // Only update transform if it's a meaningful translation (not identity matrix)
+      // Identity matrix has form [1, 0, 0, 1, 0, 0]
+      const isIdentity = args[0] === 1 && args[1] === 0 && args[2] === 0 &&
+                         args[3] === 1 && args[4] === 0 && args[5] === 0;
+
+      if (!isIdentity) {
+        // For simple translation matrices [1, 0, 0, 1, x, y], extract translation
+        if (args[0] === 1 && args[1] === 0 && args[2] === 0 && args[3] === 1) {
+          currentTransform = { x: args[4], y: args[5] };
+        }
+      }
+    }
 
     // Common color setters in pdf.js operator list:
     // setFillRGBColor: args = [r,g,b]
@@ -88,38 +110,36 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
       const nums = Array.from(coordsArray).filter((x: any) => typeof x === "number");
 
       // The coords can be in different formats:
-      // Format 1: [x, y, w, h] - position and dimensions
+      // Format 1: [x, y, w, h] - position and dimensions (relative to transform)
       // Format 2: [x1, y1, x2, y2] - two corner points
       // We detect Format 2 if the "width" and "height" values are larger than x/y (suggesting they're coordinates)
       for (let k = 0; k + 3 < nums.length; k += 4) {
         let x = nums[k], y = nums[k + 1], w = nums[k + 2], h = nums[k + 3];
         if (![x, y, w, h].every((n) => Number.isFinite(n))) continue;
 
-        // Check if this looks like [x1, y1, x2, y2] format (both w and h are > x and y respectively)
+        // Check format BEFORE applying transform (since coords are in local space)
+        // Check if this looks like [x1, y1, x2, y2] format
+        let isCornerFormat = false;
         if (w > x && h > y && w < 10000 && h < 10000) {
           // Likely [x1, y1, x2, y2] - convert to [x, y, w, h]
           const x2 = w, y2 = h;
           w = x2 - x;
           h = y2 - y;
+          isCornerFormat = true;
         }
+
+        // Now apply transformation to the position
+        x += currentTransform.x;
+        y += currentTransform.y;
 
         const aw = Math.abs(w), ah = Math.abs(h);
         if (aw < 5 || ah < 5) continue;
-
-        const pageArea = viewport.width * viewport.height;
-        const area = aw * ah;
-        const areaRatio = area / pageArea;
-
-        if (areaRatio > 0.6) continue; // likely background
 
         const dark =
           (fillRGB && isNearBlackRGB(fillRGB[0], fillRGB[1], fillRGB[2])) ||
           (fillGray !== null && isNearBlackGray(fillGray));
 
         if (!dark) continue;
-
-        // min area: either a ratio threshold or absolute px-ish threshold
-        if (area < Math.max(pageArea * 0.0005, 2000)) continue;
 
         // Transform rectangle from PDF space to viewport space
         // viewport.convertToViewportRectangle expects [x1, y1, x2, y2] in PDF space
@@ -131,6 +151,15 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
         const vw = Math.abs(vx2 - vx1);
         const vh = Math.abs(vy2 - vy1);
         const varea = vw * vh;
+
+        // Apply filters in viewport space (after transformation)
+        const pageArea = viewport.width * viewport.height;
+        const areaRatio = varea / pageArea;
+
+        if (areaRatio > 0.6) continue; // likely background
+
+        // min area: either a ratio threshold or absolute px-ish threshold
+        if (varea < Math.max(pageArea * 0.0005, 2000)) continue;
 
         rects.push({ x: vx, y: vy, w: vw, h: vh, area: varea });
       }
@@ -190,19 +219,16 @@ function scoreAndRisk(params: {
 
   let score = 0;
   if (params.overlapsTextLikely) score += 40;
-  if (params.redactAnnots > 0) score += 25;
-  if (darkRectAreaRatio >= 0.01 && darkRectAreaRatio <= 0.2) score += 15;
+  if (params.redactAnnots > 0) score += 50;
+  if (darkRectAreaRatio >= 0.005 && darkRectAreaRatio <= 0.2) score += 15;
   if (params.darkRects.some((r) => (r.w / r.h >= 3 || r.h / r.w >= 3))) score += 10;
   if (!params.hasText) score -= 20;
   if (params.darkRects.some((r) => r.area / pageArea > 0.6)) score -= 30;
 
   score = clamp(score, 0, 100);
 
-  let risk: Risk = "none";
-  if (score >= 80) risk = "high";
-  else if (score >= 50) risk = "medium";
-  else if (score >= 20) risk = "low";
-  else risk = "none";
+  // Binary risk: flagged if confidence >= 20, otherwise clean
+  const risk: Risk = score >= 20 ? "flagged" : "none";
 
   return { confidence: score, risk, darkRectAreaRatio };
 }
@@ -273,10 +299,7 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string): Promise<A
     page.cleanup();
   }
 
-  const pages_flagged = pages.filter((x) => x.risk !== "none").length;
-  const pages_high = pages.filter((x) => x.risk === "high").length;
-  const pages_medium = pages.filter((x) => x.risk === "medium").length;
-  const pages_low = pages.filter((x) => x.risk === "low").length;
+  const pages_flagged = pages.filter((x) => x.risk === "flagged").length;
 
   pdf.destroy();
 
@@ -291,7 +314,7 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string): Promise<A
       page_count: pageCount,
     },
     generated_at: new Date().toISOString(),
-    summary: { pages_flagged, pages_high, pages_medium, pages_low },
+    summary: { pages_flagged },
     pages,
   };
 }

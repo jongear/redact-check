@@ -5,12 +5,45 @@ import { cleanPdf } from "./pdf/clean";
 import { downloadBlob } from "./pdf/audit";
 import type { PageAudit, PdfJobState, BatchAuditLog } from "./pdf/types";
 
+// Demo test files from public folder
+const DEMO_FILES = [
+  {
+    url: "/redact-check/demos/test-overlay-black.pdf",
+    name: "test-overlay-black.pdf",
+    description: "Black rectangle overlay",
+    risk: "flagged" as const
+  },
+  {
+    url: "/redact-check/demos/test-mixed-methods.pdf",
+    name: "test-mixed-methods.pdf",
+    description: "Mixed overlay + annotation",
+    risk: "flagged" as const
+  },
+  {
+    url: "/redact-check/demos/test-annotation-redact.pdf",
+    name: "test-annotation-redact.pdf",
+    description: "PDF redaction annotations",
+    risk: "flagged" as const
+  },
+  {
+    url: "/redact-check/demos/test-clean.pdf",
+    name: "test-clean.pdf",
+    description: "Clean document",
+    risk: "none" as const
+  }
+].sort((a, b) => {
+  // Sort by risk level first (flagged > none), then alphabetically
+  const riskOrder = { flagged: 0, none: 1 };
+  const riskDiff = riskOrder[a.risk] - riskOrder[b.risk];
+  if (riskDiff !== 0) return riskDiff;
+  // Then alphabetically by name
+  return a.name.localeCompare(b.name);
+});
+
 function riskBadge(risk: PageAudit["risk"]) {
   const badges = {
-    high: { text: "🔥 High", className: "risk-badge risk-high" },
-    medium: { text: "⚠️ Medium", className: "risk-badge risk-medium" },
-    low: { text: "ℹ️ Low", className: "risk-badge risk-low" },
-    none: { text: "✅ None", className: "risk-badge risk-none" }
+    flagged: { text: "⚠️ Flagged", className: "risk-badge risk-flagged" },
+    none: { text: "✅ Clean", className: "risk-badge risk-none" }
   };
   const badge = badges[risk];
   return <span className={badge.className}>{badge.text}</span>;
@@ -21,6 +54,7 @@ export default function App() {
   const [globalStatus, setGlobalStatus] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const [demoFilesExpanded, setDemoFilesExpanded] = useState<boolean>(false);
 
   // Computed values
   const jobsArray = useMemo(() =>
@@ -41,25 +75,8 @@ export default function App() {
   // Helper: determine if a job actually needs cleaning
   const jobNeedsCleaning = (job: PdfJobState): boolean => {
     if (!job.audit) return false;
-    // Check if any page meets cleaning criteria:
-    // 1. Medium/high risk
-    // 2. Has redact annotations
-    // 3. Suspicious dark rect area ratio (1%-60% of page - typical redaction range)
-    //    AND either overlaps text OR is in the prime redaction range (1%-30%)
-    return job.audit.pages.some(p => {
-      if (p.risk === "high" || p.risk === "medium") return true;
-      if (p.signals.redact_annots > 0) return true;
-
-      const area = p.signals.dark_rect_area_ratio;
-      // Exclude page backgrounds (>60%) and tiny decorations (<1%)
-      if (area > 0.60 || area < 0.01) return false;
-
-      // Suspicious range (1%-60%): offer cleaning if overlaps text OR in prime redaction range
-      if (p.signals.overlaps_text_likely) return true;
-      if (area >= 0.01 && area <= 0.30) return true;
-
-      return false;
-    });
+    // Clean if any page is flagged
+    return job.audit.pages.some(p => p.risk === "flagged");
   };
 
   const jobsNeedingCleaning = useMemo(() =>
@@ -73,10 +90,7 @@ export default function App() {
       completed: 0,
       failed: 0,
       total_pages: 0,
-      total_flagged: 0,
-      high: 0,
-      medium: 0,
-      low: 0
+      total_flagged: 0
     };
 
     jobsArray.forEach(job => {
@@ -84,9 +98,6 @@ export default function App() {
         stats.completed++;
         stats.total_pages += job.audit.source.page_count;
         stats.total_flagged += job.audit.summary.pages_flagged;
-        stats.high += job.audit.summary.pages_high;
-        stats.medium += job.audit.summary.pages_medium;
-        stats.low += job.audit.summary.pages_low;
       } else if (job.status === "error") {
         stats.failed++;
       }
@@ -94,6 +105,18 @@ export default function App() {
 
     return stats;
   }, [jobs, jobsArray]);
+
+  // Load demo file
+  async function loadDemoFile(demoUrl: string, fileName: string) {
+    try {
+      const response = await fetch(demoUrl);
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      await onPickFiles([file]);
+    } catch (e) {
+      setGlobalStatus(`Failed to load demo file: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   // File selection and processing
   async function onPickFiles(files: File[]) {
@@ -408,6 +431,45 @@ export default function App() {
           </div>
         </div>
 
+        <div className="demo-files-toggle">
+          <button
+            className="demo-files-toggle-button"
+            onClick={() => setDemoFilesExpanded(!demoFilesExpanded)}
+            disabled={isProcessing}
+          >
+            <span>Try demo files</span>
+            <span className={`expand-icon ${demoFilesExpanded ? 'expanded' : ''}`}>▼</span>
+          </button>
+        </div>
+
+        {demoFilesExpanded && (
+          <div className="demo-files">
+            {DEMO_FILES.map(demo => (
+              <div key={demo.name} className="demo-file-item">
+                <button
+                  className="demo-file-button"
+                  onClick={() => loadDemoFile(demo.url, demo.name)}
+                  disabled={isProcessing}
+                  title={`${demo.description} - Click to analyze`}
+                >
+                  <div className="demo-file-name">{demo.name}</div>
+                  <div className="demo-file-desc">{demo.description}</div>
+                  <div className="demo-file-badge">{riskBadge(demo.risk)}</div>
+                </button>
+                <a
+                  href={demo.url}
+                  download={demo.name}
+                  className="demo-file-download"
+                  title="Download original PDF"
+                >
+                  ⬇️
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
         {globalStatus && (
           <div className="row" style={{ marginTop: 16 }}>
             <span className="badge badge-status"><small>{globalStatus}</small></span>
@@ -424,7 +486,6 @@ export default function App() {
             </span>
           </div>
         )}
-      </div>
 
       {jobs.size > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
@@ -432,33 +493,23 @@ export default function App() {
           <div className="summary-grid">
             <div className="summary-card">
               <span className="summary-value">{aggregateStats.total_files}</span>
-              <span className="summary-label">Files</span>
+              <span className="summary-label">Files Analyzed</span>
             </div>
             <div className="summary-card">
               <span className="summary-value">{aggregateStats.total_pages}</span>
               <span className="summary-label">Total Pages</span>
             </div>
             <div className="summary-card">
-              <span className="summary-value">{aggregateStats.total_flagged}</span>
+              <span className="summary-value" style={{ color: "var(--danger)" }}>
+                {aggregateStats.total_flagged}
+              </span>
               <span className="summary-label">Flagged Pages</span>
             </div>
             <div className="summary-card">
-              <span className="summary-value" style={{ color: "var(--danger)" }}>
-                {aggregateStats.high}
+              <span className="summary-value" style={{ color: "var(--success)" }}>
+                {aggregateStats.total_pages - aggregateStats.total_flagged}
               </span>
-              <span className="summary-label">High Risk</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value" style={{ color: "var(--warning)" }}>
-                {aggregateStats.medium}
-              </span>
-              <span className="summary-label">Medium Risk</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value" style={{ color: "var(--info)" }}>
-                {aggregateStats.low}
-              </span>
-              <span className="summary-label">Low Risk</span>
+              <span className="summary-label">Clean Pages</span>
             </div>
           </div>
 
@@ -568,28 +619,16 @@ export default function App() {
                         <span className="summary-label">Flagged</span>
                       </div>
                       <div className="summary-card-compact">
-                        <span className="summary-value-compact" style={{ color: "var(--danger)" }}>
-                          {job.audit.summary.pages_high}
+                        <span className="summary-value-compact" style={{ color: "var(--success)" }}>
+                          {job.audit.source.page_count - job.audit.summary.pages_flagged}
                         </span>
-                        <span className="summary-label">High</span>
-                      </div>
-                      <div className="summary-card-compact">
-                        <span className="summary-value-compact" style={{ color: "var(--warning)" }}>
-                          {job.audit.summary.pages_medium}
-                        </span>
-                        <span className="summary-label">Medium</span>
-                      </div>
-                      <div className="summary-card-compact">
-                        <span className="summary-value-compact" style={{ color: "var(--info)" }}>
-                          {job.audit.summary.pages_low}
-                        </span>
-                        <span className="summary-label">Low</span>
+                        <span className="summary-label">Clean</span>
                       </div>
                     </div>
 
                     {(() => {
                       const flaggedPages = job.audit.pages
-                        .filter(p => p.risk !== "none")
+                        .filter(p => p.risk === "flagged")
                         .sort((a, b) => b.confidence - a.confidence);
 
                       return flaggedPages.length > 0 ? (
