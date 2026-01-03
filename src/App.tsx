@@ -55,6 +55,7 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [demoFilesExpanded, setDemoFilesExpanded] = useState<boolean>(false);
+  const [fileFilter, setFileFilter] = useState<string>("");
 
   // Computed values
   const jobsArray = useMemo(() =>
@@ -62,6 +63,12 @@ export default function App() {
       a.file.name.localeCompare(b.file.name)
     ), [jobs]
   );
+
+  const filteredJobs = useMemo(() => {
+    if (!fileFilter.trim()) return jobsArray;
+    const query = fileFilter.toLowerCase();
+    return jobsArray.filter(job => job.file.name.toLowerCase().includes(query));
+  }, [jobsArray, fileFilter]);
 
   const completedJobs = useMemo(() =>
     jobsArray.filter(j => j.status === "complete"), [jobsArray]
@@ -536,9 +543,20 @@ export default function App() {
 
       {jobsArray.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2>Files ({jobsArray.length})</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 16, flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0 }}>Files ({filteredJobs.length}{fileFilter && ` of ${jobsArray.length}`})</h2>
+            {jobsArray.length > 1 && (
+              <input
+                type="text"
+                placeholder="Filter files..."
+                value={fileFilter}
+                onChange={(e) => setFileFilter(e.target.value)}
+                className="file-filter-input"
+              />
+            )}
+          </div>
           <div className="file-list">
-            {jobsArray.map(job => (
+            {filteredJobs.map(job => (
               <div key={job.id} className="file-item">
                 <div
                   className="file-item-header"
