@@ -4,50 +4,13 @@ import { analyzePdf } from "./pdf/analyze";
 import { cleanPdf } from "./pdf/clean";
 import { downloadBlob } from "./pdf/audit";
 import type { PdfJobState, BatchAuditLog } from "./pdf/types";
-import { RiskBadge } from "./components/RiskBadge";
 import { FileItem } from "./components/FileItem";
-
-// Demo test files from public folder
-const DEMO_FILES = [
-  {
-    url: "/redact-check/assets/test-overlay-black.pdf",
-    name: "test-overlay-black.pdf",
-    description: "Black rectangle overlay",
-    risk: "flagged" as const
-  },
-  {
-    url: "/redact-check/assets/test-mixed-methods.pdf",
-    name: "test-mixed-methods.pdf",
-    description: "Mixed overlay + annotation",
-    risk: "flagged" as const
-  },
-  {
-    url: "/redact-check/assets/test-annotation-redact.pdf",
-    name: "test-annotation-redact.pdf",
-    description: "PDF redaction annotations",
-    risk: "flagged" as const
-  },
-  {
-    url: "/redact-check/assets/test-clean.pdf",
-    name: "test-clean.pdf",
-    description: "Clean document",
-    risk: "none" as const
-  }
-].sort((a, b) => {
-  // Sort by risk level first (flagged > none), then alphabetically
-  const riskOrder = { flagged: 0, none: 1 };
-  const riskDiff = riskOrder[a.risk] - riskOrder[b.risk];
-  if (riskDiff !== 0) return riskDiff;
-  // Then alphabetically by name
-  return a.name.localeCompare(b.name);
-});
-
+import { DemoFiles } from "./components/DemoFiles";
 export default function App() {
   const [jobs, setJobs] = useState<Map<string, PdfJobState>>(new Map());
   const [globalStatus, setGlobalStatus] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
-  const [demoFilesExpanded, setDemoFilesExpanded] = useState<boolean>(false);
   const [fileFilter, setFileFilter] = useState<string>("");
 
   // Computed values
@@ -431,43 +394,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="demo-files-toggle">
-          <button
-            className="demo-files-toggle-button"
-            onClick={() => setDemoFilesExpanded(!demoFilesExpanded)}
-            disabled={isProcessing}
-          >
-            <span>Try demo files</span>
-            <span className={`expand-icon ${demoFilesExpanded ? 'expanded' : ''}`}>▼</span>
-          </button>
-        </div>
-
-        {demoFilesExpanded && (
-          <div className="demo-files">
-            {DEMO_FILES.map(demo => (
-              <div key={demo.name} className="demo-file-item">
-                <button
-                  className="demo-file-button"
-                  onClick={() => loadDemoFile(demo.url, demo.name)}
-                  disabled={isProcessing}
-                  title={`${demo.description} - Click to analyze`}
-                >
-                  <div className="demo-file-name">{demo.name}</div>
-                  <div className="demo-file-desc">{demo.description}</div>
-                  <div className="demo-file-badge"><RiskBadge risk={demo.risk} /></div>
-                </button>
-                <a
-                  href={demo.url}
-                  download={demo.name}
-                  className="demo-file-download"
-                  title="Download original PDF"
-                >
-                  ⬇️
-                </a>
-              </div>
-            ))}
-          </div>
-        )}
+        <DemoFiles onLoadDemo={loadDemoFile} isProcessing={isProcessing} />
       </div>
 
         {globalStatus && (
