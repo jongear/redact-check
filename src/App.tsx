@@ -8,25 +8,25 @@ import type { PageAudit, PdfJobState, BatchAuditLog } from "./pdf/types";
 // Demo test files from public folder
 const DEMO_FILES = [
   {
-    url: "/redact-check/demos/test-overlay-black.pdf",
+    url: "/redact-check/assets/test-overlay-black.pdf",
     name: "test-overlay-black.pdf",
     description: "Black rectangle overlay",
     risk: "flagged" as const
   },
   {
-    url: "/redact-check/demos/test-mixed-methods.pdf",
+    url: "/redact-check/assets/test-mixed-methods.pdf",
     name: "test-mixed-methods.pdf",
     description: "Mixed overlay + annotation",
     risk: "flagged" as const
   },
   {
-    url: "/redact-check/demos/test-annotation-redact.pdf",
+    url: "/redact-check/assets/test-annotation-redact.pdf",
     name: "test-annotation-redact.pdf",
     description: "PDF redaction annotations",
     risk: "flagged" as const
   },
   {
-    url: "/redact-check/demos/test-clean.pdf",
+    url: "/redact-check/assets/test-clean.pdf",
     name: "test-clean.pdf",
     description: "Clean document",
     risk: "none" as const
