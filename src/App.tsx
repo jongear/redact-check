@@ -1,60 +1,15 @@
 import { useMemo, useState } from "react";
-import JSZip from "jszip";
 import { analyzePdf } from "./pdf/analyze";
-import { cleanPdf } from "./pdf/clean";
-import { downloadBlob } from "./pdf/audit";
-import type { PageAudit, PdfJobState, BatchAuditLog } from "./pdf/types";
-
-// Demo test files from public folder
-const DEMO_FILES = [
-  {
-    url: "/redact-check/assets/test-overlay-black.pdf",
-    name: "test-overlay-black.pdf",
-    description: "Black rectangle overlay",
-    risk: "flagged" as const
-  },
-  {
-    url: "/redact-check/assets/test-mixed-methods.pdf",
-    name: "test-mixed-methods.pdf",
-    description: "Mixed overlay + annotation",
-    risk: "flagged" as const
-  },
-  {
-    url: "/redact-check/assets/test-annotation-redact.pdf",
-    name: "test-annotation-redact.pdf",
-    description: "PDF redaction annotations",
-    risk: "flagged" as const
-  },
-  {
-    url: "/redact-check/assets/test-clean.pdf",
-    name: "test-clean.pdf",
-    description: "Clean document",
-    risk: "none" as const
-  }
-].sort((a, b) => {
-  // Sort by risk level first (flagged > none), then alphabetically
-  const riskOrder = { flagged: 0, none: 1 };
-  const riskDiff = riskOrder[a.risk] - riskOrder[b.risk];
-  if (riskDiff !== 0) return riskDiff;
-  // Then alphabetically by name
-  return a.name.localeCompare(b.name);
-});
-
-function riskBadge(risk: PageAudit["risk"]) {
-  const badges = {
-    flagged: { text: "⚠️ Flagged", className: "risk-badge risk-flagged" },
-    none: { text: "✅ Clean", className: "risk-badge risk-none" }
-  };
-  const badge = badges[risk];
-  return <span className={badge.className}>{badge.text}</span>;
-}
-
+import type { PdfJobState } from "./pdf/types";
+import { FileItem } from "./components/FileItem";
+import { DemoFiles } from "./components/DemoFiles";
+import { BatchSummary } from "./components/BatchSummary";
+import { useDownloads } from "./hooks/useDownloads";
 export default function App() {
   const [jobs, setJobs] = useState<Map<string, PdfJobState>>(new Map());
   const [globalStatus, setGlobalStatus] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
-  const [demoFilesExpanded, setDemoFilesExpanded] = useState<boolean>(false);
   const [fileFilter, setFileFilter] = useState<string>("");
 
   // Computed values
@@ -112,6 +67,21 @@ export default function App() {
 
     return stats;
   }, [jobs, jobsArray]);
+
+  // Download hooks
+  const {
+    downloadJobAudit,
+    downloadJobCleaned,
+    downloadAllAudits,
+    downloadAllCleanedAsZip
+  } = useDownloads({
+    jobs,
+    setJobs,
+    setGlobalStatus,
+    completedJobs,
+    jobsNeedingCleaning,
+    aggregateStats
+  });
 
   // Load demo file
   async function loadDemoFile(demoUrl: string, fileName: string) {
@@ -232,129 +202,6 @@ export default function App() {
     }
   }
 
-  // Download functions
-  function downloadJobAudit(jobId: string) {
-    const job = jobs.get(jobId);
-    if (!job?.audit) return;
-
-    const filename = job.file.name.replace(/\.pdf$/i, ".audit.json");
-    downloadBlob(
-      new Blob([JSON.stringify(job.audit, null, 2)], { type: "application/json" }),
-      filename
-    );
-  }
-
-  async function downloadJobCleaned(jobId: string) {
-    const job = jobs.get(jobId);
-    if (!job?.audit) return;
-
-    // Lazy cleaning
-    if (!job.cleanedBytes) {
-      setGlobalStatus(`Cleaning ${job.file.name}...`);
-      try {
-        // Re-read bytes from File object (we released them after analysis to save memory)
-        const bytes = new Uint8Array(await job.file.arrayBuffer());
-        const res = await cleanPdf(bytes, job.audit);
-
-        setJobs(prev => {
-          const next = new Map(prev);
-          next.set(jobId, {
-            ...job,
-            cleanedBytes: res.cleanedBytes,
-            cleanSummary: res.actionsSummary
-          });
-          return next;
-        });
-
-        const filename = job.file.name.replace(/\.pdf$/i, ".cleaned.pdf");
-        downloadBlob(new Blob([res.cleanedBytes.slice()], { type: "application/pdf" }), filename);
-        setGlobalStatus("");
-      } catch (err) {
-        setGlobalStatus(`Error cleaning ${job.file.name}: ${err}`);
-      }
-    } else {
-      const filename = job.file.name.replace(/\.pdf$/i, ".cleaned.pdf");
-      downloadBlob(new Blob([job.cleanedBytes.slice()], { type: "application/pdf" }), filename);
-    }
-  }
-
-  function downloadAllAudits() {
-    if (completedJobs.length === 0) return;
-
-    const batchAudit: BatchAuditLog = {
-      schema: "com.example.redact-check.batch",
-      schema_version: "1.0.0",
-      tool: { name: "redact-check", version: "0.1.0", build: "web" },
-      generated_at: new Date().toISOString(),
-      batch_summary: aggregateStats,
-      files: completedJobs.map(job => ({
-        file_name: job.file.name,
-        audit: job.audit
-      }))
-    };
-
-    downloadBlob(
-      new Blob([JSON.stringify(batchAudit, null, 2)], { type: "application/json" }),
-      `batch-audit-${new Date().toISOString().split('T')[0]}.json`
-    );
-  }
-
-  async function downloadAllCleanedAsZip() {
-    if (jobsNeedingCleaning.length === 0) return;
-
-    setGlobalStatus("Preparing ZIP archive...");
-    const zip = new JSZip();
-
-    for (const job of jobsNeedingCleaning) {
-      if (!job.audit) continue;
-
-      let cleanedBytes: Uint8Array;
-
-      if (job.cleanedBytes) {
-        cleanedBytes = job.cleanedBytes;
-      } else {
-        try {
-          setGlobalStatus(`Cleaning ${job.file.name}...`);
-          // Re-read bytes from File object (we released them after analysis to save memory)
-          const bytes = new Uint8Array(await job.file.arrayBuffer());
-          const res = await cleanPdf(bytes, job.audit);
-
-          setJobs(prev => {
-            const next = new Map(prev);
-            next.set(job.id, {
-              ...job,
-              cleanedBytes: res.cleanedBytes,
-              cleanSummary: res.actionsSummary
-            });
-            return next;
-          });
-
-          cleanedBytes = res.cleanedBytes;
-        } catch (err) {
-          console.error(`Failed to clean ${job.file.name}:`, err);
-          continue;
-        }
-      }
-
-      const filename = job.file.name.replace(/\.pdf$/i, ".cleaned.pdf");
-      zip.file(filename, cleanedBytes);
-    }
-
-    setGlobalStatus("Generating ZIP file...");
-    const zipBlob = await zip.generateAsync({
-      type: "blob",
-      compression: "DEFLATE",
-      compressionOptions: { level: 6 }
-    });
-
-    downloadBlob(
-      zipBlob,
-      `cleaned-pdfs-${new Date().toISOString().split('T')[0]}.zip`
-    );
-
-    setGlobalStatus("ZIP download complete.");
-  }
-
   function toggleJobExpanded(jobId: string) {
     setJobs(prev => {
       const next = new Map(prev);
@@ -438,43 +285,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="demo-files-toggle">
-          <button
-            className="demo-files-toggle-button"
-            onClick={() => setDemoFilesExpanded(!demoFilesExpanded)}
-            disabled={isProcessing}
-          >
-            <span>Try demo files</span>
-            <span className={`expand-icon ${demoFilesExpanded ? 'expanded' : ''}`}>▼</span>
-          </button>
-        </div>
-
-        {demoFilesExpanded && (
-          <div className="demo-files">
-            {DEMO_FILES.map(demo => (
-              <div key={demo.name} className="demo-file-item">
-                <button
-                  className="demo-file-button"
-                  onClick={() => loadDemoFile(demo.url, demo.name)}
-                  disabled={isProcessing}
-                  title={`${demo.description} - Click to analyze`}
-                >
-                  <div className="demo-file-name">{demo.name}</div>
-                  <div className="demo-file-desc">{demo.description}</div>
-                  <div className="demo-file-badge">{riskBadge(demo.risk)}</div>
-                </button>
-                <a
-                  href={demo.url}
-                  download={demo.name}
-                  className="demo-file-download"
-                  title="Download original PDF"
-                >
-                  ⬇️
-                </a>
-              </div>
-            ))}
-          </div>
-        )}
+        <DemoFiles onLoadDemo={loadDemoFile} isProcessing={isProcessing} />
       </div>
 
         {globalStatus && (
@@ -495,50 +306,14 @@ export default function App() {
         )}
 
       {jobs.size > 0 && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <h2>Batch Summary</h2>
-          <div className="summary-grid">
-            <div className="summary-card">
-              <span className="summary-value">{aggregateStats.total_files}</span>
-              <span className="summary-label">Files Analyzed</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{aggregateStats.total_pages}</span>
-              <span className="summary-label">Total Pages</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value" style={{ color: "var(--danger)" }}>
-                {aggregateStats.total_flagged}
-              </span>
-              <span className="summary-label">Flagged Pages</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value" style={{ color: "var(--success)" }}>
-                {aggregateStats.total_pages - aggregateStats.total_flagged}
-              </span>
-              <span className="summary-label">Clean Pages</span>
-            </div>
-          </div>
-
-          <div className="row" style={{ marginTop: 16 }}>
-            <button
-              onClick={downloadAllAudits}
-              disabled={completedJobs.length === 0}
-            >
-              Download All Audits (JSON)
-            </button>
-            <button
-              className="primary"
-              onClick={downloadAllCleanedAsZip}
-              disabled={jobsNeedingCleaning.length === 0}
-            >
-              Download All Cleaned PDFs (ZIP)
-            </button>
-            <button onClick={() => setJobs(new Map())}>
-              Clear All
-            </button>
-          </div>
-        </div>
+        <BatchSummary
+          stats={aggregateStats}
+          completedJobsCount={completedJobs.length}
+          jobsNeedingCleaningCount={jobsNeedingCleaning.length}
+          onDownloadAllAudits={downloadAllAudits}
+          onDownloadAllCleanedAsZip={downloadAllCleanedAsZip}
+          onClearAll={() => setJobs(new Map())}
+        />
       )}
 
       {jobsArray.length > 0 && (
@@ -557,144 +332,14 @@ export default function App() {
           </div>
           <div className="file-list">
             {filteredJobs.map(job => (
-              <div key={job.id} className="file-item">
-                <div
-                  className="file-item-header"
-                  onClick={() => toggleJobExpanded(job.id)}
-                >
-                  <div className="file-item-info">
-                    <span className={`status-dot status-${job.status}`} />
-                    <span className="file-name">{job.file.name}</span>
-                    {job.audit && (
-                      <div className="file-quick-stats">
-                        <span className="stat-badge">
-                          {job.audit.source.page_count} pages
-                        </span>
-                        {job.audit.summary.pages_flagged > 0 && (
-                          jobNeedsCleaning(job) ? (
-                            <span className="stat-badge stat-flagged">
-                              {job.audit.summary.pages_flagged} flagged
-                            </span>
-                          ) : (
-                            <span className="stat-badge stat-clean">
-                              ✓ Reviewed - Clean
-                            </span>
-                          )
-                        )}
-                      </div>
-                    )}
-                    {job.error && (
-                      <span className="error-text">{job.error}</span>
-                    )}
-                  </div>
-
-                  <div className="file-item-actions">
-                    {job.status === "complete" && job.audit && (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            downloadJobAudit(job.id);
-                          }}
-                          className="btn-icon"
-                          title="Download audit.json"
-                        >
-                          📋
-                        </button>
-                        {jobNeedsCleaning(job) && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadJobCleaned(job.id);
-                            }}
-                            className="btn-icon primary"
-                            title="Download cleaned PDF"
-                          >
-                            ⬇️
-                          </button>
-                        )}
-                      </>
-                    )}
-                    <span className={`expand-icon ${job.expanded ? 'expanded' : ''}`}>
-                      ▼
-                    </span>
-                  </div>
-                </div>
-
-                {job.expanded && job.status === "complete" && job.audit && (
-                  <div className="file-item-details">
-                    <div className="summary-grid-compact">
-                      <div className="summary-card-compact">
-                        <span className="summary-value-compact">
-                          {job.audit.source.page_count}
-                        </span>
-                        <span className="summary-label">Pages</span>
-                      </div>
-                      <div className="summary-card-compact">
-                        <span className="summary-value-compact">
-                          {job.audit.summary.pages_flagged}
-                        </span>
-                        <span className="summary-label">Flagged</span>
-                      </div>
-                      <div className="summary-card-compact">
-                        <span className="summary-value-compact" style={{ color: "var(--success)" }}>
-                          {job.audit.source.page_count - job.audit.summary.pages_flagged}
-                        </span>
-                        <span className="summary-label">Clean</span>
-                      </div>
-                    </div>
-
-                    {(() => {
-                      const flaggedPages = job.audit.pages
-                        .filter(p => p.risk === "flagged")
-                        .sort((a, b) => b.confidence - a.confidence);
-
-                      return flaggedPages.length > 0 ? (
-                        <div style={{ marginTop: 16 }}>
-                          <h4>Flagged Pages</h4>
-                          <table className="table-compact">
-                            <thead>
-                              <tr>
-                                <th>Page</th>
-                                <th>Risk</th>
-                                <th>Confidence</th>
-                                <th>Dark rects</th>
-                                <th>Redact annots</th>
-                                <th>Overlap</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {flaggedPages.map(p => (
-                                <tr key={p.page}>
-                                  <td>{p.page}</td>
-                                  <td>{riskBadge(p.risk)}</td>
-                                  <td>{p.confidence}</td>
-                                  <td>{p.signals.dark_rects}</td>
-                                  <td>{p.signals.redact_annots}</td>
-                                  <td>{p.signals.overlaps_text_likely ? "yes" : "no"}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p style={{ marginTop: 16, color: "var(--success)" }}>
-                          No issues detected.
-                        </p>
-                      );
-                    })()}
-
-                    {job.cleanSummary && (
-                      <div style={{ marginTop: 16 }}>
-                        <h4>Cleaning Actions</h4>
-                        <pre style={{ fontSize: '0.75rem', padding: '12px' }}>
-                          {JSON.stringify(job.cleanSummary, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <FileItem
+                key={job.id}
+                job={job}
+                onToggleExpanded={toggleJobExpanded}
+                onDownloadAudit={downloadJobAudit}
+                onDownloadCleaned={downloadJobCleaned}
+                jobNeedsCleaning={jobNeedsCleaning}
+              />
             ))}
           </div>
         </div>
