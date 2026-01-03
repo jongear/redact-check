@@ -6,6 +6,7 @@ import { downloadBlob } from "./pdf/audit";
 import type { PdfJobState, BatchAuditLog } from "./pdf/types";
 import { FileItem } from "./components/FileItem";
 import { DemoFiles } from "./components/DemoFiles";
+import { BatchSummary } from "./components/BatchSummary";
 export default function App() {
   const [jobs, setJobs] = useState<Map<string, PdfJobState>>(new Map());
   const [globalStatus, setGlobalStatus] = useState<string>("");
@@ -415,50 +416,14 @@ export default function App() {
         )}
 
       {jobs.size > 0 && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <h2>Batch Summary</h2>
-          <div className="summary-grid">
-            <div className="summary-card">
-              <span className="summary-value">{aggregateStats.total_files}</span>
-              <span className="summary-label">Files Analyzed</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{aggregateStats.total_pages}</span>
-              <span className="summary-label">Total Pages</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value" style={{ color: "var(--danger)" }}>
-                {aggregateStats.total_flagged}
-              </span>
-              <span className="summary-label">Flagged Pages</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value" style={{ color: "var(--success)" }}>
-                {aggregateStats.total_pages - aggregateStats.total_flagged}
-              </span>
-              <span className="summary-label">Clean Pages</span>
-            </div>
-          </div>
-
-          <div className="row" style={{ marginTop: 16 }}>
-            <button
-              onClick={downloadAllAudits}
-              disabled={completedJobs.length === 0}
-            >
-              Download All Audits (JSON)
-            </button>
-            <button
-              className="primary"
-              onClick={downloadAllCleanedAsZip}
-              disabled={jobsNeedingCleaning.length === 0}
-            >
-              Download All Cleaned PDFs (ZIP)
-            </button>
-            <button onClick={() => setJobs(new Map())}>
-              Clear All
-            </button>
-          </div>
-        </div>
+        <BatchSummary
+          stats={aggregateStats}
+          completedJobsCount={completedJobs.length}
+          jobsNeedingCleaningCount={jobsNeedingCleaning.length}
+          onDownloadAllAudits={downloadAllAudits}
+          onDownloadAllCleanedAsZip={downloadAllCleanedAsZip}
+          onClearAll={() => setJobs(new Map())}
+        />
       )}
 
       {jobsArray.length > 0 && (
