@@ -1,4 +1,4 @@
-export type Risk = "high" | "medium" | "low" | "none";
+export type Risk = "flagged" | "none";
 
 export type PageFinding =
   | { type: "suspected_overlay_rect"; count: number; bbox_samples: Array<{ x: number; y: number; w: number; h: number }> }
@@ -30,7 +30,7 @@ export type AuditLog = {
   tool: { name: string; version: string; build: "web" };
   source: { file_name: string; file_size_bytes: number; sha256: string; page_count: number };
   generated_at: string;
-  summary: { pages_flagged: number; pages_high: number; pages_medium: number; pages_low: number };
+  summary: { pages_flagged: number };
   pages: PageAudit[];
 };
 
@@ -60,9 +60,6 @@ export type BatchAuditLog = {
     failed: number;
     total_pages: number;
     total_flagged: number;
-    high: number;
-    medium: number;
-    low: number;
   };
   files: Array<{
     file_name: string;

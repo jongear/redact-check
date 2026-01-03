@@ -50,12 +50,13 @@ The application follows a three-stage pipeline:
 
 **Risk Scoring** (`scoreAndRisk` in analyze.ts):
 - +40 points: Rectangle overlaps text
-- +25 points: Redaction annotations present
-- +15 points: Dark rectangle area ratio between 1-20% of page
+- +50 points: Redaction annotations present
+- +15 points: Dark rectangle area ratio between 0.5-20% of page
 - +10 points: Elongated rectangles (3:1 aspect ratio)
 - -20 points: No text on page
 - -30 points: Very large rectangles (>60% page area)
-- Risk levels: High (≥80), Medium (≥50), Low (≥20), None (<20)
+- Binary risk classification: Flagged (≥20 points), Clean (<20 points)
+- Confidence score (0-100) provided for audit purposes and result sorting
 
 **Content Stream Cleaning** (`stripCommonBlackRectFills` in clean.ts):
 - Pattern A: `0 0 0 rg ... re f` (RGB black fill + rectangle + fill operator)
@@ -96,7 +97,7 @@ User uploads PDF → File → ArrayBuffer → Uint8Array
 Core types defined in `src/pdf/types.ts`:
 - `PageAudit`: Per-page analysis results with risk level, confidence score, signals, and findings
 - `AuditLog`: Complete analysis report with schema version, source metadata, and page audits
-- `Risk`: Union type for risk levels ("high" | "medium" | "low" | "none")
+- `Risk`: Binary classification ("flagged" | "none")
 - `PageFinding`: Union type for detected issues (overlay rectangles or redaction annotations)
 
 ### UI State Management
