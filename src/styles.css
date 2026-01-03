@@ -664,6 +664,29 @@ li {
 }
 
 /* File list */
+.file-filter-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  min-width: 200px;
+  max-width: 300px;
+  transition: all 0.2s;
+}
+
+.file-filter-input:focus {
+  outline: none;
+  border-color: var(--bg-dark);
+  box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.1);
+}
+
+.file-filter-input::placeholder {
+  color: var(--text-muted);
+}
+
 .file-list {
   display: flex;
   flex-direction: column;
