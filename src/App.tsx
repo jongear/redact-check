@@ -370,8 +370,8 @@ export default function App() {
     <div className="container">
       <h1>Redact Check</h1>
       <p className="subtitle">
-        Client-side tool to <b>detect likely bad redactions</b> and export <b>cleaned PDFs</b> (heuristic).
-        Your PDFs stay in your browser.
+        Identify PDFs where sensitive content was <b>visually hidden but not actually removed</b>.
+        Automatically clean flagged files. <b>Your files never leave your browser.</b>
       </p>
 
       <div className="card card-upload">
