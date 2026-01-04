@@ -14,7 +14,21 @@ npm install          # Install dependencies
 npm run dev          # Start Vite dev server (typically http://localhost:5173)
 npm run build        # Build for production (runs TypeScript compiler + Vite build)
 npm run preview      # Preview production build locally
+npm run lint         # Run ESLint with zero warnings allowed
+npm run lint:fix     # Auto-fix ESLint issues
+npm test             # Run tests once (for CI)
+npm run test:watch   # Run tests in watch mode (for development)
+npm run test:coverage # Run tests with coverage report
 ```
+
+### Test PDF Generation
+```bash
+npm run generate-test-suite  # Generate all test PDFs in /assets (excluded from git)
+npm run generate-test-pdf    # Generate single test PDF
+npm run generate-raw-pdf     # Generate raw test PDF
+```
+
+Note: Test PDFs are generated in `/assets` (gitignored). Demo PDFs for deployment are in `/public/assets` (committed to git).
 
 ## Architecture
 
@@ -102,12 +116,46 @@ Core types defined in `src/pdf/types.ts`:
 
 ### UI State Management
 
-App.tsx uses React hooks for state:
-- `file/bytes`: Original PDF data
-- `audit`: Analysis results from PDF.js
-- `cleanedBytes/cleanSummary`: Results from pdf-lib cleaning
-- `status`: User-facing status messages
-- `flaggedPages`: Memoized sorted list of risky pages (sorted by confidence)
+**App.tsx** - Main application with two modes:
+
+1. **Single File Mode** - Uses React hooks for state:
+   - `file/bytes`: Original PDF data
+   - `audit`: Analysis results from PDF.js
+   - `cleanedBytes/cleanSummary`: Results from pdf-lib cleaning
+   - `status`: User-facing status messages
+   - `flaggedPages`: Memoized sorted list of risky pages (sorted by confidence)
+
+2. **Batch Mode** - Processes multiple PDFs:
+   - `jobs`: Array of `PdfJobState` tracking each file's processing status
+   - Background processing with concurrent analysis (up to 3 files at once)
+   - BatchAuditLog consolidates results from all files
+
+**Components**:
+- `DemoFiles.tsx`: Expandable demo file list with risk badges
+- `FileItem.tsx`: Individual file processing UI in batch mode
+- `BatchSummary.tsx`: Aggregate statistics across all processed files
+- `RiskBadge.tsx`: Color-coded risk level indicator
+
+**Hooks**:
+- `useDownloads.ts`: Centralized file download logic for PDFs and audit logs
+
+### Build & Deployment
+
+**Vite Configuration** (`vite.config.ts`):
+- Base path: `/redact-check/` (GitHub Pages deployment)
+- Assets include: `**/*.pdf` (allows importing PDFs as static assets)
+- Demo PDFs must be in `/public/assets` to be included in build output
+
+**GitHub Actions Workflows**:
+- `build.yml`: Reusable workflow (lint → test → build) using Node 22
+- `ci.yml`: Runs on PRs and feature branches, calls `build.yml`, posts PR comment
+- `deploy.yml`: Runs on main branch, calls `build.yml`, deploys to GitHub Pages, creates release
+
+**Testing**:
+- Framework: Vitest with jsdom environment
+- Test setup: `src/test/setup.ts` extends expect with @testing-library/jest-dom matchers
+- Global test utilities via `vitest.config.ts` (globals: true)
+- Component tests use @testing-library/react
 
 ## Important Notes
 
