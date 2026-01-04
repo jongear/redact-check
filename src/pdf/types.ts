@@ -43,7 +43,12 @@ export type PdfJobState = {
   bytes: Uint8Array | null;
   audit: AuditLog | null;
   cleanedBytes: Uint8Array | null;
-  cleanSummary: any;
+  cleanSummary: {
+    removed_redact_annots_estimate: number;
+    removed_annots_pages: number;
+    removed_overlay_ops_estimate: number;
+    note: string;
+  } | null;
   status: ProcessingStatus;
   error: string | null;
   expanded: boolean;

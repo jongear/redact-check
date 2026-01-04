@@ -240,7 +240,7 @@ export default function App() {
             id="folder-input"
             type="file"
             accept="application/pdf"
-            // @ts-ignore - webkitdirectory is not in standard types
+            // @ts-expect-error - webkitdirectory is not in standard types
             webkitdirectory="true"
             directory="true"
             multiple

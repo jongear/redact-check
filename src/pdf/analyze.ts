@@ -3,7 +3,7 @@ import type { AuditLog, PageAudit, Risk } from "./types";
 import { sha256Hex } from "./audit";
 
 // Worker setup (Vite-friendly)
-(pdfjs as any).GlobalWorkerOptions.workerSrc = new URL(
+(pdfjs as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url
 ).toString();
@@ -32,10 +32,10 @@ function isNearBlackGray(g: number) {
 }
 
 // VERY heuristic: tries to infer dark filled rectangles from operator list patterns.
-async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
+async function detectDarkRects(page: pdfjs.PDFPageProxy, viewport: pdfjs.PageViewport): Promise<Rect[]> {
   const opList = await page.getOperatorList();
   const fnArray: number[] = opList.fnArray;
-  const argsArray: any[] = opList.argsArray;
+  const argsArray: unknown[] = opList.argsArray;
 
   // pdf.js internal ops; numbers differ across versions, so we avoid hard-coding
   // by checking for known argument shapes and tracking color state via common setters.
@@ -107,7 +107,7 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
     }
 
     if (coordsArray) {
-      const nums = Array.from(coordsArray).filter((x: any) => typeof x === "number");
+      const nums = Array.from(coordsArray).filter((x: unknown): x is number => typeof x === "number");
 
       // The coords can be in different formats:
       // Format 1: [x, y, w, h] - position and dimensions (relative to transform)
@@ -119,13 +119,11 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
 
         // Check format BEFORE applying transform (since coords are in local space)
         // Check if this looks like [x1, y1, x2, y2] format
-        let isCornerFormat = false;
         if (w > x && h > y && w < 10000 && h < 10000) {
           // Likely [x1, y1, x2, y2] - convert to [x, y, w, h]
           const x2 = w, y2 = h;
           w = x2 - x;
           h = y2 - y;
-          isCornerFormat = true;
         }
 
         // Now apply transformation to the position
@@ -179,9 +177,9 @@ async function detectDarkRects(page: any, viewport: any): Promise<Rect[]> {
   return out;
 }
 
-async function getTextBBoxes(page: any, viewport: any) {
+async function getTextBBoxes(page: pdfjs.PDFPageProxy, viewport: pdfjs.PageViewport) {
   const tc = await page.getTextContent();
-  const items = tc.items as any[];
+  const items = tc.items as Array<{ str?: string; transform?: number[]; width?: number; height?: number }>;
   const boxes: Array<{ x: number; y: number; w: number; h: number }> = [];
   let textChars = 0;
 
@@ -212,7 +210,7 @@ function scoreAndRisk(params: {
   darkRects: Rect[];
   overlapsTextLikely: boolean;
   redactAnnots: number;
-  viewport: any;
+  viewport: pdfjs.PageViewport;
 }): { confidence: number; risk: Risk; darkRectAreaRatio: number } {
   const pageArea = params.viewport.width * params.viewport.height;
   const darkRectAreaRatio = params.darkRects.reduce((s, r) => s + r.area, 0) / pageArea;
@@ -250,7 +248,7 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string): Promise<A
 
     // Annotations
     const annots = await page.getAnnotations();
-    const redactAnnots = annots.filter((a: any) => String(a.subtype).toLowerCase() === "redact").length;
+    const redactAnnots = annots.filter((a: { subtype?: string }) => String(a.subtype).toLowerCase() === "redact").length;
 
     const darkRects = await detectDarkRects(page, viewport);
 
