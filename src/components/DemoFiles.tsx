@@ -34,7 +34,7 @@ const DEMO_FILE_CONFIGS: DemoFileConfig[] = [
 ] as const;
 
 // Generate demo files with computed URLs
-const DEMO_BASE_PATH = "/redact-check/public/assets/";
+const DEMO_BASE_PATH = "/redact-check/assets/";
 const DEMO_FILES: DemoFile[] = DEMO_FILE_CONFIGS.map(config => ({
   ...config,
   url: `${DEMO_BASE_PATH}${config.name}`
