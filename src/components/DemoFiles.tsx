@@ -12,18 +12,18 @@ type DemoFile = DemoFileConfig & { url: string };
 
 const DEMO_FILE_CONFIGS: DemoFileConfig[] = [
   {
+    name: "test-annotation-redact.pdf",
+    description: "PDF redaction annotations",
+    risk: "flagged"
+  },
+  {
     name: "test-overlay-black.pdf",
     description: "Black rectangle overlay",
     risk: "flagged"
   },
   {
-    name: "test-mixed-methods.pdf",
+    name: "test-multi-page.pdf",
     description: "Mixed overlay + annotation",
-    risk: "flagged"
-  },
-  {
-    name: "test-annotation-redact.pdf",
-    description: "PDF redaction annotations",
     risk: "flagged"
   },
   {
