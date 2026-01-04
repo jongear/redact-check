@@ -2,7 +2,7 @@ import { PDFDocument, rgb, StandardFonts, PDFName } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
 
-const ASSETS_DIR = path.join(process.cwd(), 'assets');
+const ASSETS_DIR = path.join(process.cwd(), 'public/assets');
 
 // Ensure assets directory exists
 if (!fs.existsSync(ASSETS_DIR)) {
@@ -283,16 +283,28 @@ async function generateMultiPage() {
     color: rgb(0, 0, 0),
   });
 
-  // Page 3: Annotation (MEDIUM)
+  // Page 3: Both annotation AND black overlay (COMBINED)
   const page3 = doc.addPage([600, 800]);
-  page3.drawText('PAGE 3 - ANNOTATION', { x: 50, y: 750, size: 14, font });
+  page3.drawText('PAGE 3 - ANNOTATION + OVERLAY', { x: 50, y: 750, size: 14, font });
   page3.drawText('Account: 1234567890', { x: 50, y: 700, size: 12, font });
+
+  // Add visible black rectangle overlay
+  page3.drawRectangle({
+    x: 110,
+    y: 695,
+    width: 110,
+    height: 15,
+    color: rgb(0, 0, 0),
+  });
+
+  // Add redaction annotation
   const page3Node = page3.node;
   const annot = doc.context.obj({
     Type: 'Annot',
     Subtype: 'Redact',
     Rect: [110, 695, 220, 710],
     C: [0, 0, 0],
+    IC: [0, 0, 0],
   });
   page3Node.set(PDFName.of('Annots'), doc.context.obj([doc.context.register(annot)]));
 
