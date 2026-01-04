@@ -46,7 +46,7 @@ describe('DemoFiles', () => {
     await user.click(screen.getByText('Black rectangle overlay'));
 
     expect(mockOnLoadDemo).toHaveBeenCalledWith(
-      '/redact-check/assets/test-overlay-black.pdf',
+      '/redact-check/public/assets/test-overlay-black.pdf',
       'test-overlay-black.pdf'
     );
   });

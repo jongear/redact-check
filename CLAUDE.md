@@ -23,12 +23,10 @@ npm run test:coverage # Run tests with coverage report
 
 ### Test PDF Generation
 ```bash
-npm run generate-test-suite  # Generate all test PDFs in /assets (excluded from git)
+npm run generate-test-suite  # Generate all test PDFs in /public/assets
 npm run generate-test-pdf    # Generate single test PDF
 npm run generate-raw-pdf     # Generate raw test PDF
 ```
-
-Note: Test PDFs are generated in `/assets` (gitignored). Demo PDFs for deployment are in `/public/assets` (committed to git).
 
 ## Architecture
 

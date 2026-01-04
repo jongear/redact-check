@@ -911,3 +911,101 @@ li {
   font-weight: 600;
   margin-left: 8px;
 }
+
+/* Table wrapper for horizontal scrolling */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 16px 0;
+}
+
+/* Mobile card layout for tables */
+.mobile-card-list {
+  display: none;
+}
+
+.mobile-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.mobile-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mobile-card-page {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mobile-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 0.875rem;
+}
+
+.mobile-card-label {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mobile-card-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 640px) {
+  /* Allow file item header to wrap on mobile */
+  .file-item-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* File info takes full width on mobile */
+  .file-item-info {
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
+  }
+
+  /* File name takes full width */
+  .file-name {
+    width: 100%;
+  }
+
+  /* Quick stats wrap below file name */
+  .file-quick-stats {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  /* Actions stack on new line, centered */
+  .file-item-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Hide table on mobile, show card layout instead */
+  .table-wrapper {
+    display: none;
+  }
+
+  .mobile-card-list {
+    display: block;
+  }
+}
