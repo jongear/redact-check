@@ -120,7 +120,6 @@ export function FileItem({
                       <tr>
                         <th>Page</th>
                         <th>Risk</th>
-                        <th>Confidence</th>
                         <th>Dark rects</th>
                         <th>Redact annots</th>
                         <th>Overlap</th>
@@ -131,7 +130,6 @@ export function FileItem({
                         <tr key={p.page}>
                           <td>{p.page}</td>
                           <td><RiskBadge risk={p.risk} /></td>
-                          <td>{p.confidence}</td>
                           <td>{p.signals.dark_rects}</td>
                           <td>{p.signals.redact_annots}</td>
                           <td>{p.signals.overlaps_text_likely ? "yes" : "no"}</td>
@@ -148,10 +146,6 @@ export function FileItem({
                       <div className="mobile-card-header">
                         <span className="mobile-card-page">Page {p.page}</span>
                         <RiskBadge risk={p.risk} />
-                      </div>
-                      <div className="mobile-card-row">
-                        <span className="mobile-card-label">Confidence</span>
-                        <span className="mobile-card-value">{p.confidence}</span>
                       </div>
                       <div className="mobile-card-row">
                         <span className="mobile-card-label">Dark Rectangles</span>
