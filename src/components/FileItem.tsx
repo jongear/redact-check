@@ -112,30 +112,62 @@ export function FileItem({
             return flaggedPages.length > 0 ? (
               <div style={{ marginTop: 16 }}>
                 <h4>Flagged Pages</h4>
-                <table className="table-compact">
-                  <thead>
-                    <tr>
-                      <th>Page</th>
-                      <th>Risk</th>
-                      <th>Confidence</th>
-                      <th>Dark rects</th>
-                      <th>Redact annots</th>
-                      <th>Overlap</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {flaggedPages.map(p => (
-                      <tr key={p.page}>
-                        <td>{p.page}</td>
-                        <td><RiskBadge risk={p.risk} /></td>
-                        <td>{p.confidence}</td>
-                        <td>{p.signals.dark_rects}</td>
-                        <td>{p.signals.redact_annots}</td>
-                        <td>{p.signals.overlaps_text_likely ? "yes" : "no"}</td>
+
+                {/* Desktop table view */}
+                <div className="table-wrapper">
+                  <table className="table-compact">
+                    <thead>
+                      <tr>
+                        <th>Page</th>
+                        <th>Risk</th>
+                        <th>Confidence</th>
+                        <th>Dark rects</th>
+                        <th>Redact annots</th>
+                        <th>Overlap</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {flaggedPages.map(p => (
+                        <tr key={p.page}>
+                          <td>{p.page}</td>
+                          <td><RiskBadge risk={p.risk} /></td>
+                          <td>{p.confidence}</td>
+                          <td>{p.signals.dark_rects}</td>
+                          <td>{p.signals.redact_annots}</td>
+                          <td>{p.signals.overlaps_text_likely ? "yes" : "no"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile card view */}
+                <div className="mobile-card-list">
+                  {flaggedPages.map(p => (
+                    <div key={p.page} className="mobile-card">
+                      <div className="mobile-card-header">
+                        <span className="mobile-card-page">Page {p.page}</span>
+                        <RiskBadge risk={p.risk} />
+                      </div>
+                      <div className="mobile-card-row">
+                        <span className="mobile-card-label">Confidence</span>
+                        <span className="mobile-card-value">{p.confidence}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span className="mobile-card-label">Dark Rectangles</span>
+                        <span className="mobile-card-value">{p.signals.dark_rects}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span className="mobile-card-label">Redact Annotations</span>
+                        <span className="mobile-card-value">{p.signals.redact_annots}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span className="mobile-card-label">Overlaps Text</span>
+                        <span className="mobile-card-value">{p.signals.overlaps_text_likely ? "Yes" : "No"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <p style={{ marginTop: 16, color: "var(--success)" }}>
