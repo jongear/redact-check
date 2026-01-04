@@ -19,9 +19,9 @@ describe('DemoFiles', () => {
 
     await user.click(screen.getByText('Try demo files'));
 
-    expect(screen.getByText('test-overlay-black.pdf')).toBeInTheDocument();
-    expect(screen.getByText('test-mixed-methods.pdf')).toBeInTheDocument();
     expect(screen.getByText('test-annotation-redact.pdf')).toBeInTheDocument();
+    expect(screen.getByText('test-overlay-black.pdf')).toBeInTheDocument();
+    expect(screen.getByText('test-multi-page.pdf')).toBeInTheDocument();
     expect(screen.getByText('test-clean.pdf')).toBeInTheDocument();
   });
 
