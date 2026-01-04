@@ -21,7 +21,7 @@ function stripCommonBlackRectFills(content: string): { cleaned: string; removedE
   const patternA =
     /(?:^|\n)\s*0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg\s*\n(?:[^\n]{0,200}\n){0,6}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(\d+(\.\d+)?)\s+(\d+(\.\d+)?)\s+re\s*\n\s*(f|f\*|B|B\*)\s*(?=\n|$)/g;
 
-  const outA = src.replace(patternA, (m) => {
+  const outA = src.replace(patternA, () => {
     removed += 1;
     // Remove the whole block; keep a harmless no-op comment for debugging
     return "\n% stripped_suspected_black_rect_fill\n";
@@ -31,7 +31,7 @@ function stripCommonBlackRectFills(content: string): { cleaned: string; removedE
   const patternB =
     /(?:^|\n)\s*0(\.0+)?\s+g\s*\n(?:[^\n]{0,200}\n){0,6}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(\d+(\.\d+)?)\s+(\d+(\.\d+)?)\s+re\s*\n\s*(f|f\*|B|B\*)\s*(?=\n|$)/g;
 
-  const outB = outA.replace(patternB, (m) => {
+  const outB = outA.replace(patternB, () => {
     removed += 1;
     return "\n% stripped_suspected_black_rect_fill\n";
   });
@@ -42,7 +42,7 @@ function stripCommonBlackRectFills(content: string): { cleaned: string; removedE
   const patternC =
     /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
 
-  const outC = outB.replace(patternC, (m) => {
+  const outC = outB.replace(patternC, () => {
     removed += 1;
     return "\n% stripped_suspected_black_rect_fill_path\n";
   });
@@ -52,7 +52,7 @@ function stripCommonBlackRectFills(content: string): { cleaned: string; removedE
   const patternD =
     /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+g\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
 
-  const outD = outC.replace(patternD, (m) => {
+  const outD = outC.replace(patternD, () => {
     removed += 1;
     return "\n% stripped_suspected_black_rect_fill_path\n";
   });
@@ -71,7 +71,15 @@ function isProbablyContentStreamText(streamBytes: Uint8Array): boolean {
   return ascii / Math.max(1, streamBytes.length) > 0.7;
 }
 
-export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ cleanedBytes: Uint8Array; actionsSummary: any }> {
+export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
+  cleanedBytes: Uint8Array;
+  actionsSummary: {
+    removed_redact_annots_estimate: number;
+    removed_annots_pages: number;
+    removed_overlay_ops_estimate: number;
+    note: string;
+  };
+}> {
   if (!bytes || bytes.length === 0) {
     throw new Error("No PDF data provided");
   }
@@ -95,7 +103,8 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{ c
     // 1) Remove annotations array (most redact/blackout annots live here)
     // pdf-lib doesn't expose annot subtype cleanly at high level, so we remove all annots.
     // If you want to keep non-redaction annots later, you can selectively filter.
-    const node: any = (page as any).node;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const node = (page as any).node;
     const annots = node.Annots?.();
     if (annots) {
       // We can't easily count subtype without deep parsing; use audit if provided.
