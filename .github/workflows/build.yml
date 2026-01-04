@@ -1,0 +1,58 @@
+name: Build & Test
+
+on:
+  workflow_call:
+    outputs:
+      artifact-name:
+        description: "Name of the uploaded build artifact"
+        value: ${{ jobs.build.outputs.artifact-name }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.artifact-info.outputs.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Archive build artifacts
+        run: |
+          cd dist
+          zip -r ../redact-check-build.zip .
+          cd ..
+
+      - name: Set artifact info
+        id: artifact-info
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            NAME="build-artifacts-pr-${{ github.event.pull_request.number || github.sha }}"
+          else
+            NAME="build-artifacts"
+          fi
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-info.outputs.name }}
+          path: redact-check-build.zip
+          retention-days: ${{ github.event_name == 'pull_request' && 7 || 90 }}
