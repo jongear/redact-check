@@ -137,7 +137,6 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
 
       // Decompress if stream has FlateDecode filter OR if it's compressed by magic bytes
       let decoded = raw;
-      let wasCompressed = false;
       const filter = stream.dict?.get?.(PDFName.of('Filter'));
 
       // Check magic bytes for zlib/deflate compression (0x78 0x9C, 0x78 0x01, 0x78 0xDA)
@@ -150,7 +149,6 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
           try {
             // Decompress using pako
             decoded = pako.inflate(raw);
-            wasCompressed = true;
           } catch (e) {
             // If decompression fails, try processing raw anyway
             console.warn(`Failed to decompress FlateDecode stream on page ${i + 1}: ${e}`);
@@ -160,7 +158,6 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
         // Stream is compressed but Filter entry is missing - decompress anyway
         try {
           decoded = pako.inflate(raw);
-          wasCompressed = true;
         } catch (e) {
           // If decompression fails, continue with raw bytes
           console.warn(`Failed to decompress stream with zlib magic on page ${i + 1}: ${e}`);
@@ -177,13 +174,14 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
         removedOverlayOpsEstimate += removedEstimate;
         const newBytes = new TextEncoder().encode(cleaned);
 
-        // Clone the dict and remove the Filter if it was compressed
+        // Clone the dict and update it for the cleaned stream
         const newDict = stream.dict.clone();
-        if (wasCompressed) {
-          newDict.delete(PDFName.of('Filter'));
-          // Also update the Length to match new uncompressed size
-          newDict.set(PDFName.of('Length'), pdfDoc.context.obj(newBytes.length));
-        }
+
+        // Always remove Filter to ensure stream stays uncompressed
+        newDict.delete(PDFName.of('Filter'));
+
+        // Always update the Length to match the cleaned content size
+        newDict.set(PDFName.of('Length'), pdfDoc.context.obj(newBytes.length));
 
         // Create new stream with updated contents and dict
         const newStream = PDFRawStream.of(newDict, newBytes);
@@ -195,7 +193,10 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
     }
   }
 
-  const saved = await pdfDoc.save({ useObjectStreams: true });
+  const saved = await pdfDoc.save({
+    useObjectStreams: false,  // Disable to prevent re-compression of cleaned streams
+    updateFieldAppearances: false
+  });
   const cleanedBytes = new Uint8Array(saved);
   const actionsSummary = {
     removed_redact_annots_estimate: removedRedactAnnots,
