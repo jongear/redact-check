@@ -188,8 +188,9 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
         // Create new stream with updated contents and dict
         const newStream = PDFRawStream.of(newDict, newBytes);
 
-        // Replace the Contents - always set as single stream for simplicity
-        node.set(PDFName.of('Contents'), newStream);
+        // Register the new stream with the PDF context and set the reference
+        const streamRef = pdfDoc.context.register(newStream);
+        node.set(PDFName.of('Contents'), streamRef);
       }
     }
   }
