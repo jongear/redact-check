@@ -37,10 +37,10 @@ function stripCommonBlackRectFills(content: string): { cleaned: string; removedE
   });
 
   // Pattern C: "q ... 0 0 0 rg ... m ... l ... h ... f ... Q" (RGB black path-based rect)
-  // Matches save-state, black fill, path construction, fill, restore
+  // Matches save-state, black fill, path construction with line operators, fill, restore
   // IMPORTANT: Must NOT contain BT (begin text) to avoid matching text blocks
   const patternC =
-    /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
+    /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,20}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
 
   const outC = outB.replace(patternC, () => {
     removed += 1;
@@ -50,7 +50,7 @@ function stripCommonBlackRectFills(content: string): { cleaned: string; removedE
   // Pattern D: "q ... 0 g ... m ... l ... h ... f ... Q" (Gray black path-based rect)
   // IMPORTANT: Must NOT contain BT (begin text) to avoid matching text blocks
   const patternD =
-    /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+g\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
+    /(?:^|\n)q\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*0(\.0+)?\s+g\s*\n(?:(?!BT)[^\n]{0,200}\n){0,15}?\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+m\s*\n(?:(?!BT)[^\n]{0,200}\n){0,20}?\s*h\s*\n\s*f\s*\n\s*Q\s*(?=\n|$)/g;
 
   const outD = outC.replace(patternD, () => {
     removed += 1;
