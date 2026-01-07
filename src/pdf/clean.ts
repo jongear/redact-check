@@ -120,20 +120,26 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
     // Contents can be a single stream or an array of streams.
     const maybeArray = contents.asArray?.();
     const streams = maybeArray ?? [contents];
+    const cleanedStreams: typeof streams = [];
 
     for (let j = 0; j < streams.length; j++) {
       let stream = streams[j];
 
-      // Dereference if it's a PDFRef
-      if (stream?.constructor?.name?.includes('PDFRef')) {
-        stream = pdfDoc.context.lookup(stream);
-      }
+      // Always try to dereference - if it's not a ref, lookup returns it unchanged
+      // This works reliably even with minified builds (constructor.name check fails in prod)
+      stream = pdfDoc.context.lookup(stream);
 
-      if (!stream?.getContents) continue;
+      if (!stream?.getContents) {
+        cleanedStreams.push(streams[j]);  // Keep original if can't process
+        continue;
+      }
 
       // Get raw contents (may be compressed)
       const raw: Uint8Array = stream.getContents();
-      if (!raw || raw.length === 0) continue;
+      if (!raw || raw.length === 0) {
+        cleanedStreams.push(streams[j]);  // Keep original if empty
+        continue;
+      }
 
       // Decompress if stream has FlateDecode filter OR if it's compressed by magic bytes
       let decoded = raw;
@@ -165,7 +171,10 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
       }
 
       // Check if the decoded stream is text-like
-      if (!isProbablyContentStreamText(decoded)) continue;
+      if (!isProbablyContentStreamText(decoded)) {
+        cleanedStreams.push(streams[j]);  // Keep original if not text
+        continue;
+      }
 
       const text = new TextDecoder("utf-8", { fatal: false }).decode(decoded);
       const { cleaned, removedEstimate } = stripCommonBlackRectFills(text);
@@ -186,9 +195,23 @@ export async function cleanPdf(bytes: Uint8Array, audit?: AuditLog): Promise<{
         // Create new stream with updated contents and dict
         const newStream = PDFRawStream.of(newDict, newBytes);
 
-        // Register the new stream with the PDF context and set the reference
+        // Register the new stream with the PDF context
         const streamRef = pdfDoc.context.register(newStream);
-        node.set(PDFName.of('Contents'), streamRef);
+        cleanedStreams.push(streamRef);
+      } else {
+        // Keep original stream if nothing was removed
+        cleanedStreams.push(streams[j]);
+      }
+    }
+
+    // Update Contents - maintain array structure if it was originally an array
+    if (cleanedStreams.length > 0) {
+      if (maybeArray) {
+        // Original was an array, set as array
+        node.set(PDFName.of('Contents'), pdfDoc.context.obj(cleanedStreams));
+      } else {
+        // Original was a single stream, set as single stream
+        node.set(PDFName.of('Contents'), cleanedStreams[0]);
       }
     }
   }
