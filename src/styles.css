@@ -994,10 +994,10 @@ li {
     width: 100%;
   }
 
-  /* Actions stack on new line, centered */
+  /* Actions stack on new line, left aligned */
   .file-item-actions {
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   /* Hide table on mobile, show card layout instead */
