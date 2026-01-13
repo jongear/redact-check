@@ -107,7 +107,7 @@ export function FileItem({
           {(() => {
             const flaggedPages = job.audit.pages
               .filter(p => p.risk === "flagged")
-              .sort((a, b) => b.confidence - a.confidence);
+              .sort((a, b) => a.page - b.page);
 
             return flaggedPages.length > 0 ? (
               <div style={{ marginTop: 16 }}>
